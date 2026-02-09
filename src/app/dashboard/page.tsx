@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { User, Shift } from '@/types/database';
+
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,7 +19,7 @@ export default async function DashboardPage() {
     .from('users')
     .select('*')
     .eq('id', user.id)
-    .single();
+    .single() as { data: User | null };
 
   // Get open callouts count
   const { count: openCallouts } = await supabase
@@ -32,7 +35,7 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .gte('date', today)
     .order('date', { ascending: true })
-    .limit(5);
+    .limit(5) as { data: Shift[] | null };
 
   const handleSignOut = async () => {
     'use server';
