@@ -11,7 +11,7 @@ export function NotificationBell() {
   const utils = trpc.useUtils();
 
   const { data: countData } = trpc.notification.unreadCount.useQuery(undefined, {
-    refetchInterval: 30_000, // Poll every 30 seconds
+    refetchInterval: 30_000,
   });
 
   const { data: listData } = trpc.notification.list.useQuery(
@@ -35,7 +35,6 @@ export function NotificationBell() {
   const unreadCount = countData?.count ?? 0;
   const notifications = listData?.notifications ?? [];
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -73,19 +72,39 @@ export function NotificationBell() {
     return `${diffDays}d ago`;
   }
 
-  function getTypeIcon(type: string): string {
+  function getTypeIcon(type: string): React.ReactNode {
     switch (type) {
-      case 'swap_request': return 'New';
-      case 'swap_approved': return 'OK';
-      case 'swap_denied': return 'No';
-      default: return '';
+      case 'swap_request':
+        return (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 3l5 5-5 5" />
+            <path d="M21 8H9" />
+            <path d="M8 21l-5-5 5-5" />
+            <path d="M3 16h12" />
+          </svg>
+        );
+      case 'swap_approved':
+        return (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        );
+      case 'swap_denied':
+        return (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        );
+      default:
+        return null;
     }
   }
 
   function getTypeBadgeColor(type: string): string {
     switch (type) {
-      case 'swap_request': return 'bg-blue-100 text-blue-700';
-      case 'swap_approved': return 'bg-green-100 text-green-700';
+      case 'swap_request': return 'bg-brand-100 text-brand-700';
+      case 'swap_approved': return 'bg-emerald-100 text-emerald-700';
       case 'swap_denied': return 'bg-red-100 text-red-700';
       default: return 'bg-gray-100 text-gray-700';
     }
@@ -96,7 +115,7 @@ export function NotificationBell() {
       {/* Bell button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
+        className="relative w-9 h-9 rounded-xl bg-surface-secondary border border-border flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-border transition-all"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
         <svg
@@ -105,7 +124,7 @@ export function NotificationBell() {
           viewBox="0 0 24 24"
           strokeWidth={1.5}
           stroke="currentColor"
-          className="w-6 h-6"
+          className="w-[18px] h-[18px]"
         >
           <path
             strokeLinecap="round"
@@ -116,7 +135,7 @@ export function NotificationBell() {
 
         {/* Unread count badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full min-w-[18px]">
+          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold leading-none text-white bg-rose-500 rounded-full shadow-sm">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -124,14 +143,14 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+        <div className="absolute right-0 mt-2 w-80 bg-surface rounded-2xl shadow-xl border border-border z-50 animate-fade-in-down overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-light">
+            <h3 className="text-sm font-semibold text-text-primary">Notifications</h3>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs text-blue-600 hover:text-blue-800"
+                className="text-xs font-medium text-brand-600 hover:text-brand-700 transition-colors"
                 disabled={markAllReadMutation.isPending}
               >
                 Mark all read
@@ -142,39 +161,44 @@ export function NotificationBell() {
           {/* Notification list */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-500">
-                No notifications yet
+              <div className="px-5 py-10 text-center">
+                <div className="w-10 h-10 rounded-full bg-surface-secondary flex items-center justify-center mx-auto mb-3">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-tertiary">
+                    <path d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                  </svg>
+                </div>
+                <p className="text-sm text-text-tertiary">No notifications yet</p>
               </div>
             ) : (
               notifications.map((notification) => (
                 <button
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification.id, notification.link)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-50 transition-colors ${
-                    !notification.read_at ? 'bg-blue-50/50' : ''
+                  className={`w-full text-left px-5 py-3.5 hover:bg-surface-secondary border-b border-border-light transition-colors last:border-0 ${
+                    !notification.read_at ? 'bg-brand-50/30' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <span
-                      className={`inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded ${getTypeBadgeColor(
+                      className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-medium shrink-0 mt-0.5 ${getTypeBadgeColor(
                         notification.type
-                      )} mt-0.5 shrink-0`}
+                      )}`}
                     >
                       {getTypeIcon(notification.type)}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <span className="text-sm font-medium text-text-primary truncate">
                           {notification.title}
                         </span>
                         {!notification.read_at && (
-                          <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0" />
+                          <span className="w-2 h-2 bg-brand-500 rounded-full shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
+                      <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
-                      <span className="text-xs text-gray-400 mt-1 block">
+                      <span className="text-[11px] text-text-tertiary mt-1 block">
                         {getTimeAgo(notification.created_at)}
                       </span>
                     </div>

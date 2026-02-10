@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ShiftSwap",
-  description: "Same-day shift coverage made simple",
+  title: "ShiftSwap — Shift Coverage Made Simple",
+  description: "Post a call-out. Get it covered. Done. The fastest way for teams to manage shift swaps.",
 };
 
 export default function RootLayout({
@@ -24,9 +24,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="scroll-smooth">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
       >
         <TRPCProvider>{children}</TRPCProvider>
       </body>
