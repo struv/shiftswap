@@ -62,6 +62,25 @@ export interface CallOut {
 
 export type ClaimStatus = 'pending' | 'approved' | 'rejected';
 
+export type NotificationType =
+  | 'swap_request'
+  | 'swap_approved'
+  | 'swap_denied'
+  | 'shift_claimed'
+  | 'general';
+
+export interface Notification {
+  id: string;
+  org_id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
 export interface Claim {
   id: string;
   callout_id: string;
@@ -126,6 +145,11 @@ export interface Database {
         Row: Claim;
         Insert: Omit<Claim, 'id' | 'created_at' | 'claimed_at'>;
         Update: Partial<Omit<Claim, 'id'>>;
+      };
+      notifications: {
+        Row: Notification;
+        Insert: Omit<Notification, 'id' | 'created_at'>;
+        Update: Partial<Omit<Notification, 'id'>>;
       };
     };
   };
