@@ -2,6 +2,28 @@
 // These match our Supabase schema
 
 export type UserRole = 'staff' | 'manager' | 'admin';
+export type OrgRole = 'admin' | 'manager' | 'staff';
+export type OrgPlan = 'free' | 'starter' | 'pro' | 'enterprise';
+export type OrgStatus = 'active' | 'suspended' | 'canceled';
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  settings: Record<string, unknown>;
+  plan: OrgPlan;
+  status: OrgStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrgMember {
+  id: string;
+  org_id: string;
+  user_id: string;
+  role: OrgRole;
+  joined_at: string;
+}
 
 export interface User {
   id: string;
@@ -66,6 +88,16 @@ export interface ClaimWithUser extends Claim {
 export interface Database {
   public: {
     Tables: {
+      organizations: {
+        Row: Organization;
+        Insert: Omit<Organization, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Organization, 'id'>>;
+      };
+      org_members: {
+        Row: OrgMember;
+        Insert: Omit<OrgMember, 'id' | 'joined_at'>;
+        Update: Partial<Omit<OrgMember, 'id'>>;
+      };
       users: {
         Row: User;
         Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
