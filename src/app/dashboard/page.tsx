@@ -137,6 +137,12 @@ export default async function DashboardPage() {
                 Pending Approvals
               </Link>
               <Link
+                href="/shifts/import"
+                className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Import Shifts (CSV)
+              </Link>
+              <Link
                 href="/admin/users"
                 className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
               >

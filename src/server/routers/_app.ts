@@ -6,6 +6,7 @@
  * have app.current_org_id set for RLS enforcement.
  */
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { router, publicProcedure, authedProcedure, orgProcedure } from '../trpc';
 
 export const appRouter = router({
@@ -70,6 +71,49 @@ export const appRouter = router({
 
         const { data: shifts } = await query;
         return { shifts: shifts ?? [] };
+      }),
+
+    /** Bulk create shifts — manager/admin only */
+    bulkCreate: orgProcedure
+      .input(
+        z.object({
+          shifts: z.array(
+            z.object({
+              user_id: z.string().uuid(),
+              date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+              start_time: z.string().regex(/^\d{2}:\d{2}$/),
+              end_time: z.string().regex(/^\d{2}:\d{2}$/),
+              role: z.string().min(1),
+              department: z.string().min(1),
+            })
+          ),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.orgRole === 'staff') {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Only managers and admins can bulk-create shifts',
+          });
+        }
+
+        const results: { created: number; errors: string[] } = {
+          created: 0,
+          errors: [],
+        };
+
+        for (let i = 0; i < input.shifts.length; i++) {
+          const shift = input.shifts[i];
+          const { error } = await ctx.supabase.from('shifts').insert(shift);
+
+          if (error) {
+            results.errors.push(`Row ${i + 1}: ${error.message}`);
+          } else {
+            results.created++;
+          }
+        }
+
+        return results;
       }),
   }),
 
