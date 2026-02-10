@@ -7,6 +7,8 @@
  */
 import { z } from 'zod';
 import { router, publicProcedure, authedProcedure, orgProcedure } from '../trpc';
+import { shiftRouter } from './shift';
+import { swapRouter } from './swap';
 
 export const appRouter = router({
   /** Health check — public, no auth required */
@@ -49,29 +51,11 @@ export const appRouter = router({
     }),
   }),
 
-  /** Shift routes (org-scoped) */
-  shift: router({
-    list: orgProcedure
-      .input(
-        z.object({
-          date: z.string().optional(),
-          userId: z.string().uuid().optional(),
-        })
-      )
-      .query(async ({ ctx, input }) => {
-        let query = ctx.supabase.from('shifts').select('*');
+  /** Shift CRUD routes (org-scoped) */
+  shift: shiftRouter,
 
-        if (input.date) {
-          query = query.eq('date', input.date);
-        }
-        if (input.userId) {
-          query = query.eq('user_id', input.userId);
-        }
-
-        const { data: shifts } = await query;
-        return { shifts: shifts ?? [] };
-      }),
-  }),
+  /** Swap request workflow routes (org-scoped) */
+  swap: swapRouter,
 
   /** Callout routes (org-scoped) */
   callout: router({
