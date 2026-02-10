@@ -82,11 +82,12 @@ export const locationsRelations = relations(locations, ({ one, many }) => ({
 export const users = pgTable(
   'users',
   {
-    id: uuid('id').primaryKey(),
+    id: uuid('id').primaryKey().defaultRandom(),
     orgId: uuid('org_id')
       .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
+    passwordHash: text('password_hash').notNull(),
     name: text('name').notNull(),
     phone: text('phone'),
     role: text('role', { enum: ['staff', 'manager', 'admin'] })

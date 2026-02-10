@@ -6,7 +6,7 @@ import { query } from '@/lib/db';
 
 /**
  * Server-side auth guard for protected pages and server actions.
- * Validates the Neon Auth session token, fetches the user profile,
+ * Validates the JWT access token, fetches the user profile,
  * and returns a UserSession. Redirects to /auth/login if not authenticated.
  */
 export async function requireAuth(): Promise<UserSession> {
@@ -16,14 +16,14 @@ export async function requireAuth(): Promise<UserSession> {
     redirect('/auth/login');
   }
 
-  // Validate the access token
+  // Validate the access token (local JWT verification)
   let authUser = await neonAuthGetUser(accessToken);
 
-  // If token expired, try refreshing
+  // If token expired, try refreshing with rotation
   if (!authUser && refreshToken) {
     const refreshed = await neonAuthRefreshToken(refreshToken);
     if (refreshed) {
-      await setSessionCookies(refreshed.access_token, refreshToken);
+      await setSessionCookies(refreshed.access_token, refreshed.refresh_token);
       authUser = await neonAuthGetUser(refreshed.access_token);
     }
   }
@@ -34,20 +34,13 @@ export async function requireAuth(): Promise<UserSession> {
 
   // Fetch user profile from the users table
   const { rows } = await query(
-    'SELECT * FROM users WHERE id = $1 LIMIT 1',
+    'SELECT id, email, name, role, department FROM users WHERE id = $1 LIMIT 1',
     [authUser.id]
   );
   const profile = rows[0] ?? null;
 
   if (!profile) {
-    // User exists in auth but not in users table — fallback to auth metadata
-    return {
-      id: authUser.id,
-      email: authUser.email,
-      name: authUser.name ?? authUser.email.split('@')[0],
-      role: 'staff',
-      department: null,
-    };
+    redirect('/auth/login');
   }
 
   return {
@@ -72,7 +65,7 @@ export async function getAuthUser(): Promise<{ id: string; email: string } | nul
   if (!authUser && refreshToken) {
     const refreshed = await neonAuthRefreshToken(refreshToken);
     if (refreshed) {
-      await setSessionCookies(refreshed.access_token, refreshToken);
+      await setSessionCookies(refreshed.access_token, refreshed.refresh_token);
       authUser = await neonAuthGetUser(refreshed.access_token);
     }
   }

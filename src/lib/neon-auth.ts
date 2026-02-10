@@ -1,17 +1,13 @@
 /**
- * Neon Auth client.
+ * Custom JWT authentication backed by Neon Postgres.
  *
- * Communicates with the Neon Auth service at NEON_AUTH_BASE_URL
- * for user signup, signin, session validation, and signout.
+ * Replaces the previous external Neon Auth API calls with direct
+ * database queries, bcrypt password hashing, and JWT token generation.
  */
 
-function getBaseUrl(): string {
-  const url = process.env.NEON_AUTH_BASE_URL;
-  if (!url) {
-    throw new Error('NEON_AUTH_BASE_URL environment variable is not set');
-  }
-  return url.replace(/\/$/, '');
-}
+import { query } from '@/lib/db';
+import { hashPassword, verifyPassword } from '@/lib/password';
+import { signAccessToken, signRefreshToken, verifyToken } from '@/lib/jwt';
 
 export interface NeonAuthUser {
   id: string;
@@ -29,8 +25,13 @@ export interface NeonAuthResult {
   tokens: NeonAuthTokens;
 }
 
+// Default org ID for new signups (single-tenant MVP)
+const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000000';
+
 /**
  * Sign up a new user with email and password.
+ * Hashes the password with bcrypt, inserts into the users table,
+ * and returns JWT tokens.
  */
 export async function neonAuthSignUp(
   email: string,
@@ -38,32 +39,47 @@ export async function neonAuthSignUp(
   name?: string
 ): Promise<{ data: NeonAuthResult | null; error: string | null }> {
   try {
-    const res = await fetch(`${getBaseUrl()}/api/v1/auth/password/sign-up`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, display_name: name }),
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      return {
-        data: null,
-        error: body.message ?? body.error ?? `Signup failed (${res.status})`,
-      };
+    if (password.length < 6) {
+      return { data: null, error: 'Password should be at least 6 characters' };
     }
 
-    const body = await res.json();
+    // Check if email already exists
+    const existing = await query(
+      'SELECT id FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
+    if (existing.rows.length > 0) {
+      return { data: null, error: 'An account with this email already exists' };
+    }
+
+    const passwordHash = await hashPassword(password);
+    const displayName = name ?? email.split('@')[0];
+
+    // Ensure default org exists
+    await query(
+      `INSERT INTO organizations (id, name, slug)
+       VALUES ($1, 'Default', 'default')
+       ON CONFLICT (id) DO NOTHING`,
+      [DEFAULT_ORG_ID]
+    );
+
+    const { rows } = await query(
+      `INSERT INTO users (org_id, email, password_hash, name)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, name`,
+      [DEFAULT_ORG_ID, email, passwordHash, displayName]
+    );
+
+    const user = rows[0];
+    const [accessToken, refreshToken] = await Promise.all([
+      signAccessToken(user.id, user.email),
+      signRefreshToken(user.id, user.email),
+    ]);
+
     return {
       data: {
-        user: {
-          id: body.user_id ?? body.id,
-          email,
-          name: name ?? null,
-        },
-        tokens: {
-          access_token: body.access_token,
-          refresh_token: body.refresh_token,
-        },
+        user: { id: user.id, email: user.email, name: user.name },
+        tokens: { access_token: accessToken, refresh_token: refreshToken },
       },
       error: null,
     };
@@ -75,38 +91,37 @@ export async function neonAuthSignUp(
 
 /**
  * Sign in with email and password.
+ * Verifies the password with bcrypt, then returns JWT tokens.
  */
 export async function neonAuthSignIn(
   email: string,
   password: string
 ): Promise<{ data: NeonAuthResult | null; error: string | null }> {
   try {
-    const res = await fetch(`${getBaseUrl()}/api/v1/auth/password/sign-in`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    const { rows } = await query(
+      'SELECT id, email, name, password_hash FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      return {
-        data: null,
-        error: body.message ?? body.error ?? 'Invalid login credentials',
-      };
+    if (rows.length === 0) {
+      return { data: null, error: 'Invalid login credentials' };
     }
 
-    const body = await res.json();
+    const user = rows[0];
+    const valid = await verifyPassword(password, user.password_hash);
+    if (!valid) {
+      return { data: null, error: 'Invalid login credentials' };
+    }
+
+    const [accessToken, refreshToken] = await Promise.all([
+      signAccessToken(user.id, user.email),
+      signRefreshToken(user.id, user.email),
+    ]);
+
     return {
       data: {
-        user: {
-          id: body.user_id ?? body.id,
-          email: body.primary_email ?? body.email ?? email,
-          name: body.display_name ?? body.name ?? null,
-        },
-        tokens: {
-          access_token: body.access_token,
-          refresh_token: body.refresh_token,
-        },
+        user: { id: user.id, email: user.email, name: user.name },
+        tokens: { access_token: accessToken, refresh_token: refreshToken },
       },
       error: null,
     };
@@ -117,65 +132,45 @@ export async function neonAuthSignIn(
 }
 
 /**
- * Validate a session by fetching the current user with the access token.
+ * Validate a session by verifying the JWT access token.
  * Returns the user if the token is valid, null otherwise.
  */
 export async function neonAuthGetUser(
   accessToken: string
 ): Promise<NeonAuthUser | null> {
-  try {
-    const res = await fetch(`${getBaseUrl()}/api/v1/users/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+  const payload = await verifyToken(accessToken);
+  if (!payload || payload.type !== 'access') return null;
 
-    if (!res.ok) return null;
-
-    const body = await res.json();
-    return {
-      id: body.id ?? body.user_id,
-      email: body.primary_email ?? body.email,
-      name: body.display_name ?? body.name ?? null,
-    };
-  } catch {
-    return null;
-  }
+  return {
+    id: payload.sub!,
+    email: payload.email,
+    name: null, // Caller fetches full profile from DB if needed
+  };
 }
 
 /**
  * Refresh an access token using a refresh token.
+ * Validates the refresh JWT and issues a new access token (token rotation).
  */
 export async function neonAuthRefreshToken(
   refreshToken: string
-): Promise<{ access_token: string } | null> {
-  try {
-    const res = await fetch(
-      `${getBaseUrl()}/api/v1/auth/sessions/current/refresh`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      }
-    );
+): Promise<{ access_token: string; refresh_token: string } | null> {
+  const payload = await verifyToken(refreshToken);
+  if (!payload || payload.type !== 'refresh') return null;
 
-    if (!res.ok) return null;
+  const [newAccess, newRefresh] = await Promise.all([
+    signAccessToken(payload.sub!, payload.email),
+    signRefreshToken(payload.sub!, payload.email),
+  ]);
 
-    const body = await res.json();
-    return { access_token: body.access_token };
-  } catch {
-    return null;
-  }
+  return { access_token: newAccess, refresh_token: newRefresh };
 }
 
 /**
- * Sign out — invalidate the current session.
+ * Sign out — no server-side action needed with stateless JWTs.
+ * The caller clears the HTTP-only cookies.
  */
-export async function neonAuthSignOut(accessToken: string): Promise<void> {
-  try {
-    await fetch(`${getBaseUrl()}/api/v1/auth/sessions/current`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-  } catch {
-    // Best-effort signout; we always clear local cookies regardless
-  }
+export async function neonAuthSignOut(_accessToken: string): Promise<void> {
+  // Stateless JWT: nothing to invalidate server-side.
+  // Session cookies are cleared by the caller.
 }
