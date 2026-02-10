@@ -1,9 +1,9 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { loginAction } from './actions';
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -20,14 +20,10 @@ function LoginForm() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const result = await loginAction(email, password);
 
-    if (error) {
-      setError(error.message);
+    if (result.error) {
+      setError(result.error);
       setLoading(false);
     } else {
       router.push('/dashboard');

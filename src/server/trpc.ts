@@ -2,25 +2,23 @@
  * tRPC server initialization and middleware definitions.
  *
  * This module sets up:
- * - tRPC context creation (with Supabase client)
- * - Auth middleware (verifies Supabase session)
+ * - tRPC context creation (with Neon Auth + DB client)
+ * - Auth middleware (verifies Neon Auth session)
  * - Org context middleware (derives org_id, sets RLS session vars)
  */
 import { initTRPC, TRPCError } from '@trpc/server';
 import { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
-import { SupabaseClient } from '@supabase/supabase-js';
 import superjson from 'superjson';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { OrgRole } from '@/types/database';
 import { getOrgContext } from '@/lib/orgContext';
+import { getAuthUser } from '@/lib/auth';
+import { createDbClient, DbClient } from '@/lib/db-client';
 
 /**
  * Context available to all tRPC procedures.
  */
 export interface Context {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any>;
+  db: DbClient;
   user: { id: string; email: string } | null;
 }
 
@@ -35,49 +33,15 @@ export interface AuthedOrgContext extends Context {
 
 /**
  * Creates the tRPC context for each request.
- * Initializes a Supabase server client and extracts user from session.
+ * Initializes a DB client and extracts user from Neon Auth session.
  */
 export async function createTRPCContext(
   _opts: FetchCreateContextFnOptions
 ): Promise<Context> {
-  const cookieStore = await cookies();
+  const db = createDbClient();
+  const user = await getAuthUser();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new TRPCError({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Missing Supabase environment variables',
-    });
-  }
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        } catch {
-          // Called from Server Component — ignored when middleware refreshes sessions
-        }
-      },
-    },
-  });
-
-  // Get authenticated user (if any)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  return {
-    supabase,
-    user: user ? { id: user.id, email: user.email! } : null,
-  };
+  return { db, user };
 }
 
 const t = initTRPC.context<Context>().create({
@@ -123,10 +87,10 @@ const withOrgContext = t.middleware(async ({ ctx, next }) => {
   }
 
   // Derive org context from user's membership
-  const orgCtx = await getOrgContext(ctx.supabase, ctx.user.id);
+  const orgCtx = await getOrgContext(ctx.db, ctx.user.id);
 
   // Set PostgreSQL session variable for RLS enforcement
-  const { error } = await ctx.supabase.rpc('set_org_context', {
+  const { error } = await ctx.db.rpc('set_org_context', {
     org_id: orgCtx.orgId,
   });
 
@@ -155,7 +119,7 @@ export const authedProcedure = t.procedure.use(isAuthed);
 
 /**
  * Procedure that requires authentication AND org context.
- * Sets RLS session vars so all subsequent Supabase queries are org-scoped.
+ * Sets RLS session vars so all subsequent queries are org-scoped.
  * Use for all org-scoped operations (shifts, callouts, claims, etc.).
  */
 export const orgProcedure = t.procedure.use(withOrgContext);

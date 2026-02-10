@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
-// Mock Supabase client with chainable query builder
+// Mock DB client with chainable query builder
 // ---------------------------------------------------------------------------
 
 interface MockQueryResult {
@@ -86,9 +86,9 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     const mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: testShift, error: null })
     );
-    const supabase = { from: mockFrom };
+    const db = { from: mockFrom };
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('shifts')
       .insert({
         user_id: staffUserId,
@@ -113,9 +113,9 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     const mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: testCallout, error: null })
     );
-    const supabase = { from: mockFrom };
+    const db = { from: mockFrom };
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('callouts')
       .insert({
         shift_id: testShift.id,
@@ -138,9 +138,9 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     const mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: testClaim, error: null })
     );
-    const supabase = { from: mockFrom };
+    const db = { from: mockFrom };
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('claims')
       .insert({
         callout_id: testCallout.id,
@@ -170,9 +170,9 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     const mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: approvedClaim, error: null })
     );
-    const supabase = { from: mockFrom };
+    const db = { from: mockFrom };
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('claims')
       .update({
         status: 'approved',
@@ -195,9 +195,9 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     const mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: updatedCallout, error: null })
     );
-    const supabase = { from: mockFrom };
+    const db = { from: mockFrom };
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('callouts')
       .update({ status: 'approved' })
       .eq('id', testCallout.id)
@@ -213,9 +213,9 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     const mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: updatedShift, error: null })
     );
-    const supabase = { from: mockFrom };
+    const db = { from: mockFrom };
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('shifts')
       .update({ user_id: claimerUserId })
       .eq('id', testShift.id)
@@ -233,16 +233,16 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     let mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: testShift, error: null })
     );
-    let supabase = { from: mockFrom };
-    const shift = await supabase.from('shifts').insert({}).select('*').single();
+    let db = { from: mockFrom };
+    const shift = await db.from('shifts').insert({}).select('*').single();
     expect(shift.error).toBeNull();
 
     // Step 2: Post callout
     mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: testCallout, error: null })
     );
-    supabase = { from: mockFrom };
-    const callout = await supabase.from('callouts').insert({}).select('*').single();
+    db = { from: mockFrom };
+    const callout = await db.from('callouts').insert({}).select('*').single();
     expect(callout.error).toBeNull();
     expect(callout.data.status).toBe('open');
 
@@ -250,8 +250,8 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: testClaim, error: null })
     );
-    supabase = { from: mockFrom };
-    const claim = await supabase.from('claims').insert({}).select('*').single();
+    db = { from: mockFrom };
+    const claim = await db.from('claims').insert({}).select('*').single();
     expect(claim.error).toBeNull();
     expect(claim.data.status).toBe('pending');
 
@@ -260,8 +260,8 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: approved, error: null })
     );
-    supabase = { from: mockFrom };
-    const approval = await supabase.from('claims').update({}).eq('id', testClaim.id).select('*').single();
+    db = { from: mockFrom };
+    const approval = await db.from('claims').update({}).eq('id', testClaim.id).select('*').single();
     expect(approval.error).toBeNull();
     expect(approval.data.status).toBe('approved');
 
@@ -270,8 +270,8 @@ describe('Swap workflow: shift → callout → claim → approve', () => {
     mockFrom = vi.fn().mockReturnValue(
       createChainableQuery({ data: transferred, error: null })
     );
-    supabase = { from: mockFrom };
-    const transfer = await supabase.from('shifts').update({}).eq('id', testShift.id).select('*').single();
+    db = { from: mockFrom };
+    const transfer = await db.from('shifts').update({}).eq('id', testShift.id).select('*').single();
     expect(transfer.error).toBeNull();
     expect(transfer.data.user_id).toBe(claimerUserId);
   });

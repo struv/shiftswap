@@ -24,7 +24,7 @@ export const notificationRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      let query = ctx.supabase
+      let query = ctx.db
         .from('notifications')
         .select('*')
         .eq('user_id', ctx.user.id)
@@ -51,7 +51,7 @@ export const notificationRouter = router({
    * Get the count of unread notifications for the current user.
    */
   unreadCount: orgProcedure.query(async ({ ctx }) => {
-    const { count, error } = await ctx.supabase
+    const { count, error } = await ctx.db
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', ctx.user.id)
@@ -74,7 +74,7 @@ export const notificationRouter = router({
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       // Verify notification belongs to the user
-      const { data: notification, error: fetchError } = await ctx.supabase
+      const { data: notification, error: fetchError } = await ctx.db
         .from('notifications')
         .select('id, user_id')
         .eq('id', input.id)
@@ -94,7 +94,7 @@ export const notificationRouter = router({
         });
       }
 
-      const { error } = await ctx.supabase
+      const { error } = await ctx.db
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('id', input.id);
@@ -113,7 +113,7 @@ export const notificationRouter = router({
    * Mark all unread notifications as read for the current user.
    */
   markAllRead: orgProcedure.mutation(async ({ ctx }) => {
-    const { error } = await ctx.supabase
+    const { error } = await ctx.db
       .from('notifications')
       .update({ read_at: new Date().toISOString() })
       .eq('user_id', ctx.user.id)
