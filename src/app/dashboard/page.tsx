@@ -1,25 +1,13 @@
+import { requireAuth } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { User, Shift } from '@/types/database';
+import { Shift } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
+  const session = await requireAuth();
   const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    redirect('/auth/login');
-  }
-
-  // Get user profile
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single() as { data: User | null };
 
   // Get open callouts count
   const { count: openCallouts } = await supabase
@@ -32,17 +20,10 @@ export default async function DashboardPage() {
   const { data: upcomingShifts } = await supabase
     .from('shifts')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', session.id)
     .gte('date', today)
     .order('date', { ascending: true })
     .limit(5) as { data: Shift[] | null };
-
-  const handleSignOut = async () => {
-    'use server';
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-    redirect('/auth/login');
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -52,14 +33,12 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">ShiftSwap</h1>
           <div className="flex items-center gap-4">
             <span className="text-gray-600">
-              {profile?.name || user.email}
-              {profile?.role && (
-                <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                  {profile.role}
-                </span>
-              )}
+              {session.name || session.email}
+              <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                {session.role}
+              </span>
             </span>
-            <form action={handleSignOut}>
+            <form action="/auth/logout" method="POST">
               <button
                 type="submit"
                 className="text-sm text-gray-500 hover:text-gray-700"
@@ -110,7 +89,7 @@ export default async function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Your Upcoming Shifts
           </h2>
-          
+
           {upcomingShifts && upcomingShifts.length > 0 ? (
             <div className="space-y-3">
               {upcomingShifts.map((shift) => (
@@ -145,7 +124,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Manager section */}
-        {profile?.role === 'manager' || profile?.role === 'admin' ? (
+        {session.role === 'manager' || session.role === 'admin' ? (
           <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-semibold text-yellow-800 mb-4">
               Manager Actions

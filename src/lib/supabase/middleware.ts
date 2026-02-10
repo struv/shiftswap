@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+const PROTECTED_PATHS = ['/dashboard', '/callouts', '/shifts', '/approve', '/admin'];
+const AUTH_PATHS = ['/auth/login', '/auth/signup'];
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -29,20 +32,30 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session if expired
+  // Refresh session if expired — always call getUser() to validate JWT
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect to login if not authenticated and trying to access protected routes
-  const protectedPaths = ['/dashboard', '/callouts', '/shifts'];
-  const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
+  const pathname = request.nextUrl.pathname;
+
+  // Redirect unauthenticated users away from protected routes
+  const isProtectedPath = PROTECTED_PATHS.some((path) =>
+    pathname.startsWith(path)
   );
 
   if (!user && isProtectedPath) {
     const url = request.nextUrl.clone();
     url.pathname = '/auth/login';
+    return NextResponse.redirect(url);
+  }
+
+  // Redirect authenticated users away from auth pages to dashboard
+  const isAuthPath = AUTH_PATHS.some((path) => pathname.startsWith(path));
+
+  if (user && isAuthPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
     return NextResponse.redirect(url);
   }
 

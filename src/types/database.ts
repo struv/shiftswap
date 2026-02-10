@@ -51,6 +51,15 @@ export interface Claim {
   created_at: string;
 }
 
+// Session user profile returned by requireAuth()
+export interface UserSession {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  department: string | null;
+}
+
 // Joined types for display
 export interface CallOutWithDetails extends CallOut {
   shift: Shift;
