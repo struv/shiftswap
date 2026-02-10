@@ -44,86 +44,90 @@ export function ShiftDetailsModal({
   const shiftDate = new Date(shift.date + 'T00:00:00');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+      <div className="relative bg-surface rounded-2xl shadow-xl max-w-md w-full mx-4 p-7 border border-border animate-scale-in">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
+          className="absolute top-5 right-5 w-8 h-8 rounded-lg bg-surface-secondary border border-border-light flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-border transition-all"
           aria-label="Close"
         >
-          &times;
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
         </button>
 
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <h2 className="text-lg font-semibold text-text-primary mb-5">
           Shift Details
         </h2>
 
-        <div className="space-y-3">
-          <div className="flex justify-between items-start">
-            <span className="text-sm text-gray-500">Date</span>
-            <span className="text-sm font-medium text-gray-900">
-              {shiftDate.toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </span>
-          </div>
+        <div className="space-y-4">
+          <DetailRow label="Date">
+            {shiftDate.toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </DetailRow>
 
-          <div className="flex justify-between items-start">
-            <span className="text-sm text-gray-500">Time</span>
-            <span className="text-sm font-medium text-gray-900">
-              {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-            </span>
-          </div>
+          <DetailRow label="Time">
+            {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+          </DetailRow>
 
-          <div className="flex justify-between items-start">
-            <span className="text-sm text-gray-500">Role</span>
-            <span className="text-sm font-medium text-gray-900 capitalize">
-              {shift.role}
-            </span>
-          </div>
+          <DetailRow label="Role">
+            <span className="capitalize">{shift.role}</span>
+          </DetailRow>
 
-          <div className="flex justify-between items-start">
-            <span className="text-sm text-gray-500">Department</span>
-            <span className="text-sm font-medium text-gray-900">
-              {shift.department}
-            </span>
-          </div>
+          <DetailRow label="Department">
+            {shift.department}
+          </DetailRow>
 
-          <div className="flex justify-between items-start">
-            <span className="text-sm text-gray-500">Assigned to</span>
-            <span className="text-sm font-medium text-gray-900">
+          <DetailRow label="Assigned to">
+            <span className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center text-[10px] font-semibold text-brand-700">
+                {(shift.user?.name ?? '?').charAt(0).toUpperCase()}
+              </span>
               {shift.user?.name ?? 'Unassigned'}
               {isOwn && (
-                <span className="ml-1 text-xs text-blue-600">(You)</span>
+                <span className="text-[11px] text-brand-600 font-medium bg-brand-50 px-1.5 py-0.5 rounded">(You)</span>
               )}
             </span>
-          </div>
+          </DetailRow>
         </div>
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-7 flex gap-3">
           {isOwn && !isManager && (
             <button
               onClick={onSwapRequest}
-              className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors"
+              className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
             >
               Request Swap
             </button>
           )}
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 px-4 py-2.5 bg-surface-secondary hover:bg-border text-text-primary rounded-xl text-sm font-semibold border border-border transition-all active:scale-[0.98]"
           >
             Close
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex justify-between items-start py-2 border-b border-border-light last:border-0">
+      <span className="text-sm text-text-secondary">{label}</span>
+      <span className="text-sm font-medium text-text-primary text-right max-w-[60%]">
+        {children}
+      </span>
     </div>
   );
 }
