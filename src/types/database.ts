@@ -51,6 +51,24 @@ export interface Claim {
   created_at: string;
 }
 
+export type NotificationType =
+  | 'swap_request_created'
+  | 'swap_request_approved'
+  | 'swap_request_denied'
+  | 'claim_received'
+  | 'general';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
 // Joined types for display
 export interface CallOutWithDetails extends CallOut {
   shift: Shift;
@@ -65,26 +83,38 @@ export interface ClaimWithUser extends Claim {
 // Database schema type for Supabase
 export interface Database {
   public: {
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Tables: {
       users: {
         Row: User;
         Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<User, 'id'>>;
+        Relationships: [];
       };
       shifts: {
         Row: Shift;
         Insert: Omit<Shift, 'id' | 'created_at'>;
         Update: Partial<Omit<Shift, 'id'>>;
+        Relationships: [];
       };
       callouts: {
         Row: CallOut;
         Insert: Omit<CallOut, 'id' | 'created_at' | 'updated_at' | 'posted_at'>;
         Update: Partial<Omit<CallOut, 'id'>>;
+        Relationships: [];
       };
       claims: {
         Row: Claim;
         Insert: Omit<Claim, 'id' | 'created_at' | 'claimed_at'>;
         Update: Partial<Omit<Claim, 'id'>>;
+        Relationships: [];
+      };
+      notifications: {
+        Row: Notification;
+        Insert: Omit<Notification, 'id' | 'created_at' | 'read_at'> & { read_at?: string | null };
+        Update: Partial<Omit<Notification, 'id'>>;
+        Relationships: [];
       };
     };
   };
