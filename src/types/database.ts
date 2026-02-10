@@ -51,6 +51,20 @@ export interface Claim {
   created_at: string;
 }
 
+export type SwapRequestStatus = 'pending' | 'approved' | 'denied' | 'cancelled';
+
+export interface SwapRequest {
+  id: string;
+  shift_id: string;
+  requester_id: string;
+  replacement_user_id: string | null;
+  notes: string | null;
+  reason: string | null;
+  status: SwapRequestStatus;
+  created_at: string;
+  updated_at: string;
+}
+
 // Joined types for display
 export interface CallOutWithDetails extends CallOut {
   shift: Shift;
@@ -62,30 +76,134 @@ export interface ClaimWithUser extends Claim {
   user: User;
 }
 
-// Database schema type for Supabase
+// Database schema type for Supabase client
 export interface Database {
   public: {
     Tables: {
       users: {
         Row: User;
-        Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<User, 'id'>>;
+        Insert: {
+          id: string;
+          email: string;
+          name: string;
+          phone?: string | null;
+          role?: string;
+          department?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          name?: string;
+          phone?: string | null;
+          role?: string;
+          department?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       shifts: {
         Row: Shift;
-        Insert: Omit<Shift, 'id' | 'created_at'>;
-        Update: Partial<Omit<Shift, 'id'>>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          date: string;
+          start_time: string;
+          end_time: string;
+          role: string;
+          department: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          date?: string;
+          start_time?: string;
+          end_time?: string;
+          role?: string;
+          department?: string;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       callouts: {
         Row: CallOut;
-        Insert: Omit<CallOut, 'id' | 'created_at' | 'updated_at' | 'posted_at'>;
-        Update: Partial<Omit<CallOut, 'id'>>;
+        Insert: {
+          id?: string;
+          shift_id: string;
+          user_id: string;
+          reason?: string | null;
+          posted_at?: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          shift_id?: string;
+          user_id?: string;
+          reason?: string | null;
+          posted_at?: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       claims: {
         Row: Claim;
-        Insert: Omit<Claim, 'id' | 'created_at' | 'claimed_at'>;
-        Update: Partial<Omit<Claim, 'id'>>;
+        Insert: {
+          id?: string;
+          callout_id: string;
+          user_id: string;
+          claimed_at?: string;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          callout_id?: string;
+          user_id?: string;
+          claimed_at?: string;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      swap_requests: {
+        Row: SwapRequest;
+        Insert: {
+          id?: string;
+          shift_id: string;
+          requester_id: string;
+          replacement_user_id?: string | null;
+          notes?: string | null;
+          reason?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          shift_id?: string;
+          requester_id?: string;
+          replacement_user_id?: string | null;
+          notes?: string | null;
+          reason?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 }
