@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionTokensFromRequest } from '@/lib/session';
-import { neonAuthGetUser } from '@/lib/neon-auth';
+import { verifyToken } from '@/lib/jwt';
 
 const PROTECTED_PATHS = ['/dashboard', '/callouts', '/shifts', '/approve', '/admin', '/schedule', '/swaps'];
 const AUTH_PATHS = ['/auth/login', '/auth/signup'];
@@ -9,15 +9,16 @@ export async function middleware(request: NextRequest) {
   const { accessToken } = getSessionTokensFromRequest(request);
   const pathname = request.nextUrl.pathname;
 
-  // Check if the user has a valid session
-  const user = accessToken ? await neonAuthGetUser(accessToken) : null;
+  // Verify JWT locally (no network call needed)
+  const payload = accessToken ? await verifyToken(accessToken) : null;
+  const isAuthenticated = payload !== null && payload.type === 'access';
 
   // Redirect unauthenticated users away from protected routes
   const isProtectedPath = PROTECTED_PATHS.some((path) =>
     pathname.startsWith(path)
   );
 
-  if (!user && isProtectedPath) {
+  if (!isAuthenticated && isProtectedPath) {
     const url = request.nextUrl.clone();
     url.pathname = '/auth/login';
     return NextResponse.redirect(url);
@@ -26,7 +27,7 @@ export async function middleware(request: NextRequest) {
   // Redirect authenticated users away from auth pages to dashboard
   const isAuthPath = AUTH_PATHS.some((path) => pathname.startsWith(path));
 
-  if (user && isAuthPath) {
+  if (isAuthenticated && isAuthPath) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);
