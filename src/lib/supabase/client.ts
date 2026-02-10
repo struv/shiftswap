@@ -6,6 +6,14 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
+    // During build/SSG, env vars may not be available.
+    // Return a placeholder client that will be replaced at runtime.
+    if (typeof window === 'undefined') {
+      return createBrowserClient<Database>(
+        'https://placeholder.supabase.co',
+        'placeholder-key'
+      );
+    }
     throw new Error(
       'Missing Supabase environment variables. ' +
       'Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY'
