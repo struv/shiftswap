@@ -1,91 +1,49 @@
-// Database types for ShiftSwap
-// These match our Supabase schema
+import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
+import type {
+  organizations,
+  locations,
+  users,
+  userLocations,
+  shifts,
+  shiftTemplates,
+  templateShifts,
+  swapRequests,
+  timeOffRequests,
+  notifications,
+  auditLogs,
+} from "@/db/schema";
 
-export type UserRole = 'staff' | 'manager' | 'admin';
+// Select types (rows returned from queries)
+export type Organization = InferSelectModel<typeof organizations>;
+export type Location = InferSelectModel<typeof locations>;
+export type User = InferSelectModel<typeof users>;
+export type UserLocation = InferSelectModel<typeof userLocations>;
+export type Shift = InferSelectModel<typeof shifts>;
+export type ShiftTemplate = InferSelectModel<typeof shiftTemplates>;
+export type TemplateShift = InferSelectModel<typeof templateShifts>;
+export type SwapRequest = InferSelectModel<typeof swapRequests>;
+export type TimeOffRequest = InferSelectModel<typeof timeOffRequests>;
+export type Notification = InferSelectModel<typeof notifications>;
+export type AuditLog = InferSelectModel<typeof auditLogs>;
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  phone: string | null;
-  role: UserRole;
-  department: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// Insert types (for creating new rows)
+export type NewOrganization = InferInsertModel<typeof organizations>;
+export type NewLocation = InferInsertModel<typeof locations>;
+export type NewUser = InferInsertModel<typeof users>;
+export type NewUserLocation = InferInsertModel<typeof userLocations>;
+export type NewShift = InferInsertModel<typeof shifts>;
+export type NewShiftTemplate = InferInsertModel<typeof shiftTemplates>;
+export type NewTemplateShift = InferInsertModel<typeof templateShifts>;
+export type NewSwapRequest = InferInsertModel<typeof swapRequests>;
+export type NewTimeOffRequest = InferInsertModel<typeof timeOffRequests>;
+export type NewNotification = InferInsertModel<typeof notifications>;
+export type NewAuditLog = InferInsertModel<typeof auditLogs>;
 
-export interface Shift {
-  id: string;
-  user_id: string;
-  date: string; // YYYY-MM-DD
-  start_time: string; // HH:MM
-  end_time: string; // HH:MM
-  role: string;
-  department: string;
-  created_at: string;
-}
-
-export type CallOutStatus = 'open' | 'claimed' | 'approved' | 'cancelled';
-
-export interface CallOut {
-  id: string;
-  shift_id: string;
-  user_id: string; // who's calling out
-  reason: string | null;
-  posted_at: string;
-  status: CallOutStatus;
-  created_at: string;
-  updated_at: string;
-}
-
-export type ClaimStatus = 'pending' | 'approved' | 'rejected';
-
-export interface Claim {
-  id: string;
-  callout_id: string;
-  user_id: string; // who's claiming
-  claimed_at: string;
-  status: ClaimStatus;
-  approved_by: string | null;
-  approved_at: string | null;
-  created_at: string;
-}
-
-// Joined types for display
-export interface CallOutWithDetails extends CallOut {
-  shift: Shift;
-  user: User;
-  claims?: ClaimWithUser[];
-}
-
-export interface ClaimWithUser extends Claim {
-  user: User;
-}
-
-// Database schema type for Supabase
-export interface Database {
-  public: {
-    Tables: {
-      users: {
-        Row: User;
-        Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<User, 'id'>>;
-      };
-      shifts: {
-        Row: Shift;
-        Insert: Omit<Shift, 'id' | 'created_at'>;
-        Update: Partial<Omit<Shift, 'id'>>;
-      };
-      callouts: {
-        Row: CallOut;
-        Insert: Omit<CallOut, 'id' | 'created_at' | 'updated_at' | 'posted_at'>;
-        Update: Partial<Omit<CallOut, 'id'>>;
-      };
-      claims: {
-        Row: Claim;
-        Insert: Omit<Claim, 'id' | 'created_at' | 'claimed_at'>;
-        Update: Partial<Omit<Claim, 'id'>>;
-      };
-    };
-  };
-}
+// Enum-like types
+export type UserRole = "employee" | "manager" | "admin";
+export type OrgPlan = "free" | "starter" | "pro" | "enterprise";
+export type OrgStatus = "active" | "suspended" | "canceled";
+export type UserStatus = "active" | "inactive";
+export type RequestStatus = "pending" | "approved" | "denied" | "canceled";
+export type SwapRequestStatus = RequestStatus;
+export type TimeOffRequestStatus = RequestStatus;

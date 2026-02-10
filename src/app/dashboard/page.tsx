@@ -1,15 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { User, Shift } from '@/types/database';
+import type { User, Shift } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  
+
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (!user) {
     redirect('/auth/login');
   }
@@ -21,20 +21,20 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single() as { data: User | null };
 
-  // Get open callouts count
-  const { count: openCallouts } = await supabase
-    .from('callouts')
+  // Get pending swap requests count
+  const { count: pendingSwaps } = await supabase
+    .from('swap_requests')
     .select('*', { count: 'exact', head: true })
-    .eq('status', 'open');
+    .eq('status', 'pending');
 
   // Get user's upcoming shifts
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date().toISOString();
   const { data: upcomingShifts } = await supabase
     .from('shifts')
     .select('*')
     .eq('user_id', user.id)
-    .gte('date', today)
-    .order('date', { ascending: true })
+    .gte('start_time', now)
+    .order('start_time', { ascending: true })
     .limit(5) as { data: Shift[] | null };
 
   const handleSignOut = async () => {
@@ -44,6 +44,10 @@ export default async function DashboardPage() {
     redirect('/auth/login');
   };
 
+  const displayName = profile
+    ? `${profile.firstName} ${profile.lastName}`
+    : user.email;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -52,7 +56,7 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">ShiftSwap</h1>
           <div className="flex items-center gap-4">
             <span className="text-gray-600">
-              {profile?.name || user.email}
+              {displayName}
               {profile?.role && (
                 <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                   {profile.role}
@@ -76,22 +80,22 @@ export default async function DashboardPage() {
         {/* Quick actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Link
-            href="/callouts/new"
+            href="/swap/new"
             className="bg-red-500 hover:bg-red-600 text-white rounded-lg p-6 text-center transition-colors"
           >
-            <div className="text-3xl mb-2">🚨</div>
-            <div className="text-xl font-semibold">I Can&apos;t Work</div>
-            <div className="text-sm opacity-90">Post a call-out</div>
+            <div className="text-3xl mb-2">🔄</div>
+            <div className="text-xl font-semibold">Request Swap</div>
+            <div className="text-sm opacity-90">Swap a shift with someone</div>
           </Link>
 
           <Link
-            href="/callouts"
+            href="/swaps"
             className="bg-green-500 hover:bg-green-600 text-white rounded-lg p-6 text-center transition-colors"
           >
-            <div className="text-3xl mb-2">✋</div>
-            <div className="text-xl font-semibold">Pick Up Shift</div>
+            <div className="text-3xl mb-2">📋</div>
+            <div className="text-xl font-semibold">Swap Requests</div>
             <div className="text-sm opacity-90">
-              {openCallouts || 0} open call-outs
+              {pendingSwaps || 0} pending requests
             </div>
           </Link>
 
@@ -110,7 +114,7 @@ export default async function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Your Upcoming Shifts
           </h2>
-          
+
           {upcomingShifts && upcomingShifts.length > 0 ? (
             <div className="space-y-3">
               {upcomingShifts.map((shift) => (
@@ -120,21 +124,30 @@ export default async function DashboardPage() {
                 >
                   <div>
                     <div className="font-medium">
-                      {new Date(shift.date).toLocaleDateString('en-US', {
+                      {new Date(shift.startTime).toLocaleDateString('en-US', {
                         weekday: 'short',
                         month: 'short',
                         day: 'numeric',
                       })}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {shift.start_time} - {shift.end_time} • {shift.role}
+                      {new Date(shift.startTime).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                      {' - '}
+                      {new Date(shift.endTime).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                      {shift.role && ` • ${shift.role}`}
                     </div>
                   </div>
                   <Link
-                    href={`/callouts/new?shift=${shift.id}`}
+                    href={`/swap/new?shift=${shift.id}`}
                     className="text-sm text-red-600 hover:text-red-700"
                   >
-                    Can&apos;t work?
+                    Request swap
                   </Link>
                 </div>
               ))}
