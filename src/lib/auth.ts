@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { User, UserSession } from '@/types/database';
+import { UserSession } from '@/types/database';
 
 /**
  * Server-side auth guard for protected pages and server actions.
@@ -23,24 +23,27 @@ export async function requireAuth(): Promise<UserSession> {
     .from('users')
     .select('*')
     .eq('id', user.id)
-    .single() as { data: User | null };
+    .single();
 
   if (!profile) {
     // User exists in auth but not in users table — fallback to auth metadata
+    const nameParts = (user.user_metadata?.name ?? user.email?.split('@')[0] ?? '').split(' ');
     return {
       id: user.id,
       email: user.email ?? '',
-      name: user.user_metadata?.name ?? user.email?.split('@')[0] ?? '',
+      firstName: nameParts[0] ?? '',
+      lastName: nameParts.slice(1).join(' ') ?? '',
       role: 'staff',
-      department: null,
+      orgId: '',
     };
   }
 
   return {
     id: profile.id,
     email: profile.email,
-    name: profile.name,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
     role: profile.role,
-    department: profile.department,
+    orgId: profile.org_id,
   };
 }

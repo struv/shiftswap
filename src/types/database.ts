@@ -1,100 +1,86 @@
-// Database types for ShiftSwap
-// These match our Supabase schema
+// Database types for ShiftSwap — derived from Drizzle schema (db/schema.ts)
+// These types are used across the application for type safety.
 
-export type UserRole = 'staff' | 'manager' | 'admin';
+import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+import type {
+  organizations,
+  orgMembers,
+  locations,
+  users,
+  userLocations,
+  shifts,
+  swapRequests,
+  notifications,
+} from '../../db/schema';
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  phone: string | null;
-  role: UserRole;
-  department: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// ---------------------------------------------------------------------------
+// Row types (SELECT)
+// ---------------------------------------------------------------------------
 
-export interface Shift {
-  id: string;
-  user_id: string;
-  date: string; // YYYY-MM-DD
-  start_time: string; // HH:MM
-  end_time: string; // HH:MM
-  role: string;
-  department: string;
-  created_at: string;
-}
+export type Organization = InferSelectModel<typeof organizations>;
+export type OrgMember = InferSelectModel<typeof orgMembers>;
+export type Location = InferSelectModel<typeof locations>;
+export type User = InferSelectModel<typeof users>;
+export type UserLocation = InferSelectModel<typeof userLocations>;
+export type Shift = InferSelectModel<typeof shifts>;
+export type SwapRequest = InferSelectModel<typeof swapRequests>;
+export type Notification = InferSelectModel<typeof notifications>;
 
-export type CallOutStatus = 'open' | 'claimed' | 'approved' | 'cancelled';
+// ---------------------------------------------------------------------------
+// Insert types
+// ---------------------------------------------------------------------------
 
-export interface CallOut {
-  id: string;
-  shift_id: string;
-  user_id: string; // who's calling out
-  reason: string | null;
-  posted_at: string;
-  status: CallOutStatus;
-  created_at: string;
-  updated_at: string;
-}
+export type NewOrganization = InferInsertModel<typeof organizations>;
+export type NewOrgMember = InferInsertModel<typeof orgMembers>;
+export type NewLocation = InferInsertModel<typeof locations>;
+export type NewUser = InferInsertModel<typeof users>;
+export type NewUserLocation = InferInsertModel<typeof userLocations>;
+export type NewShift = InferInsertModel<typeof shifts>;
+export type NewSwapRequest = InferInsertModel<typeof swapRequests>;
+export type NewNotification = InferInsertModel<typeof notifications>;
 
-export type ClaimStatus = 'pending' | 'approved' | 'rejected';
+// ---------------------------------------------------------------------------
+// Enum value types (for use in application code)
+// ---------------------------------------------------------------------------
 
-export interface Claim {
-  id: string;
-  callout_id: string;
-  user_id: string; // who's claiming
-  claimed_at: string;
-  status: ClaimStatus;
-  approved_by: string | null;
-  approved_at: string | null;
-  created_at: string;
-}
+export type OrgPlan = 'free' | 'pro' | 'enterprise';
+export type OrgStatus = 'active' | 'suspended';
+export type MemberRole = 'admin' | 'manager' | 'staff';
+export type UserStatus = 'active' | 'inactive' | 'invited';
+export type SwapStatus = 'pending' | 'approved' | 'denied' | 'canceled';
+export type NotificationType =
+  | 'swap_requested'
+  | 'swap_approved'
+  | 'swap_denied'
+  | 'shift_assigned'
+  | 'shift_updated'
+  | 'general';
 
-// Session user profile returned by requireAuth()
+// ---------------------------------------------------------------------------
+// Session / Auth types
+// ---------------------------------------------------------------------------
+
 export interface UserSession {
   id: string;
   email: string;
-  name: string;
-  role: UserRole;
-  department: string | null;
+  firstName: string;
+  lastName: string;
+  role: MemberRole;
+  orgId: string;
 }
 
-// Joined types for display
-export interface CallOutWithDetails extends CallOut {
-  shift: Shift;
+// ---------------------------------------------------------------------------
+// Joined / display types
+// ---------------------------------------------------------------------------
+
+export interface ShiftWithDetails extends Shift {
   user: User;
-  claims?: ClaimWithUser[];
+  location: Location;
 }
 
-export interface ClaimWithUser extends Claim {
-  user: User;
-}
-
-// Database schema type for Supabase
-export interface Database {
-  public: {
-    Tables: {
-      users: {
-        Row: User;
-        Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<User, 'id'>>;
-      };
-      shifts: {
-        Row: Shift;
-        Insert: Omit<Shift, 'id' | 'created_at'>;
-        Update: Partial<Omit<Shift, 'id'>>;
-      };
-      callouts: {
-        Row: CallOut;
-        Insert: Omit<CallOut, 'id' | 'created_at' | 'updated_at' | 'posted_at'>;
-        Update: Partial<Omit<CallOut, 'id'>>;
-      };
-      claims: {
-        Row: Claim;
-        Insert: Omit<Claim, 'id' | 'created_at' | 'claimed_at'>;
-        Update: Partial<Omit<Claim, 'id'>>;
-      };
-    };
-  };
+export interface SwapRequestWithDetails extends SwapRequest {
+  originalShift: ShiftWithDetails;
+  requestedByUser: User;
+  replacementUser: User | null;
+  reviewedByUser: User | null;
 }
