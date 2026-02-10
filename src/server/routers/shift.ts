@@ -233,6 +233,85 @@ export const shiftRouter = router({
       return { shift };
     }),
 
+  /** Bulk create shifts from CSV import — manager/admin only */
+  bulkCreate: orgProcedure
+    .input(
+      z.object({
+        shifts: z.array(
+          z.object({
+            email: z.string().email(),
+            date: z.string(),
+            startTime: z.string(),
+            endTime: z.string(),
+            role: z.string(),
+            department: z.string(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.orgRole === 'staff') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only managers and admins can bulk create shifts',
+        });
+      }
+
+      // Look up all unique emails to get user IDs
+      const uniqueEmails = [...new Set(input.shifts.map((s) => s.email))];
+      const { data: users, error: userError } = await ctx.supabase
+        .from('users')
+        .select('id, email')
+        .in('email', uniqueEmails);
+
+      if (userError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to look up users: ${userError.message}`,
+        });
+      }
+
+      const emailToId = new Map<string, string>();
+      for (const user of users ?? []) {
+        emailToId.set(user.email, user.id);
+      }
+
+      const created: Array<{ row: number }> = [];
+      const failed: Array<{ row: number; email: string; error: string }> = [];
+
+      for (let i = 0; i < input.shifts.length; i++) {
+        const shift = input.shifts[i];
+        const userId = emailToId.get(shift.email);
+
+        if (!userId) {
+          failed.push({ row: i + 1, email: shift.email, error: `User not found: ${shift.email}` });
+          continue;
+        }
+
+        if (shift.startTime >= shift.endTime) {
+          failed.push({ row: i + 1, email: shift.email, error: 'End time must be after start time' });
+          continue;
+        }
+
+        const { error } = await ctx.supabase.from('shifts').insert({
+          user_id: userId,
+          date: shift.date,
+          start_time: shift.startTime,
+          end_time: shift.endTime,
+          role: shift.role,
+          department: shift.department,
+        });
+
+        if (error) {
+          failed.push({ row: i + 1, email: shift.email, error: error.message });
+        } else {
+          created.push({ row: i + 1 });
+        }
+      }
+
+      return { created: created.length, failed, total: input.shifts.length };
+    }),
+
   /** Delete a shift — manager/admin only */
   delete: orgProcedure
     .input(z.object({ id: z.string().uuid() }))
