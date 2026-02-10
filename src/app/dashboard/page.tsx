@@ -77,12 +77,12 @@ export default async function DashboardPage() {
           </Link>
 
           <Link
-            href="/shifts"
+            href="/schedule"
             className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-6 text-center transition-colors"
           >
             <div className="text-3xl mb-2">📅</div>
-            <div className="text-xl font-semibold">My Shifts</div>
-            <div className="text-sm opacity-90">View your schedule</div>
+            <div className="text-xl font-semibold">Schedule</div>
+            <div className="text-sm opacity-90">View weekly schedule</div>
           </Link>
         </div>
 
@@ -133,10 +133,10 @@ export default async function DashboardPage() {
             </h2>
             <div className="flex gap-4">
               <Link
-                href="/approve"
+                href="/swaps"
                 className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors"
               >
-                Pending Approvals
+                Swap Requests
               </Link>
               <Link
                 href="/admin/users"
