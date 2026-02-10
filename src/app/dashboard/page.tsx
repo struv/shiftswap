@@ -16,13 +16,13 @@ export default async function DashboardPage() {
     .eq('status', 'open');
 
   // Get user's upcoming shifts
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date().toISOString();
   const { data: upcomingShifts } = await supabase
     .from('shifts')
     .select('*')
     .eq('user_id', session.id)
-    .gte('date', today)
-    .order('date', { ascending: true })
+    .gte('start_time', now)
+    .order('start_time', { ascending: true })
     .limit(5) as { data: Shift[] | null };
 
   return (
@@ -33,7 +33,7 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">ShiftSwap</h1>
           <div className="flex items-center gap-4">
             <span className="text-gray-600">
-              {session.name || session.email}
+              {session.firstName ? `${session.firstName} ${session.lastName}`.trim() : session.email}
               <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                 {session.role}
               </span>
@@ -99,14 +99,17 @@ export default async function DashboardPage() {
                 >
                   <div>
                     <div className="font-medium">
-                      {new Date(shift.date).toLocaleDateString('en-US', {
+                      {new Date(shift.start_time).toLocaleDateString('en-US', {
                         weekday: 'short',
                         month: 'short',
                         day: 'numeric',
                       })}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {shift.start_time} - {shift.end_time} • {shift.role}
+                      {new Date(shift.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      {' - '}
+                      {new Date(shift.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      {shift.role ? ` • ${shift.role}` : ''}
                     </div>
                   </div>
                   <Link

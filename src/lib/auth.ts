@@ -27,20 +27,23 @@ export async function requireAuth(): Promise<UserSession> {
 
   if (!profile) {
     // User exists in auth but not in users table — fallback to auth metadata
+    const fallbackName = user.user_metadata?.name ?? user.email?.split('@')[0] ?? '';
     return {
       id: user.id,
       email: user.email ?? '',
-      name: user.user_metadata?.name ?? user.email?.split('@')[0] ?? '',
-      role: 'staff',
-      department: null,
+      firstName: fallbackName,
+      lastName: '',
+      role: 'employee',
+      orgId: '',
     };
   }
 
   return {
     id: profile.id,
     email: profile.email,
-    name: profile.name,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
     role: profile.role,
-    department: profile.department,
+    orgId: profile.org_id,
   };
 }
