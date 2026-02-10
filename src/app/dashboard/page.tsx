@@ -2,6 +2,7 @@ import { requireAuth } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Shift } from '@/types/database';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">ShiftSwap</h1>
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <span className="text-gray-600">
               {session.name || session.email}
               <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">

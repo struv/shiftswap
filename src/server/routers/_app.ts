@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { router, publicProcedure, authedProcedure, orgProcedure } from '../trpc';
 import { shiftRouter } from './shift';
 import { swapRouter } from './swap';
+import { notificationRouter } from './notification';
 
 export const appRouter = router({
   /** Health check — public, no auth required */
@@ -56,6 +57,9 @@ export const appRouter = router({
 
   /** Swap request workflow routes (org-scoped) */
   swap: swapRouter,
+
+  /** Notification routes (org-scoped) */
+  notification: notificationRouter,
 
   /** Callout routes (org-scoped) */
   callout: router({

@@ -76,6 +76,19 @@ export interface SwapRequest {
   updated_at: string;
 }
 
+export type NotificationType = 'swap_request' | 'swap_approved' | 'swap_denied';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
 export type ClaimStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Claim {
@@ -147,6 +160,11 @@ export interface Database {
         Row: SwapRequest;
         Insert: Omit<SwapRequest, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<SwapRequest, 'id'>>;
+      };
+      notifications: {
+        Row: Notification;
+        Insert: Omit<Notification, 'id' | 'created_at'>;
+        Update: Partial<Omit<Notification, 'id'>>;
       };
     };
   };

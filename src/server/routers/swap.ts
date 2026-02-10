@@ -12,6 +12,11 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, orgProcedure } from '../trpc';
+import {
+  notifySwapRequested,
+  notifySwapApproved,
+  notifySwapDenied,
+} from '@/lib/notifications';
 
 export const swapRouter = router({
   /**
@@ -141,6 +146,24 @@ export const swapRouter = router({
         });
       }
 
+      // Notify managers about the new swap request
+      const { data: requester } = await ctx.supabase
+        .from('users')
+        .select('name')
+        .eq('id', ctx.user.id)
+        .single();
+
+      notifySwapRequested({
+        supabase: ctx.supabase,
+        orgId: ctx.orgId,
+        requesterId: ctx.user.id,
+        requesterName: requester?.name ?? ctx.user.email,
+        shiftDate: shift.date,
+        shiftStartTime: shift.start_time,
+        shiftEndTime: shift.end_time,
+        swapId: swap.id,
+      }).catch((err) => console.error('[NOTIFICATION] Failed to notify swap request:', err));
+
       return { swap };
     }),
 
@@ -260,6 +283,24 @@ export const swapRouter = router({
         });
       }
 
+      // Notify the requester that their swap was approved
+      const { data: requesterUser } = await ctx.supabase
+        .from('users')
+        .select('email')
+        .eq('id', swap.requested_by)
+        .single();
+
+      notifySwapApproved({
+        supabase: ctx.supabase,
+        requesterId: swap.requested_by,
+        requesterEmail: requesterUser?.email ?? '',
+        shiftDate: shift.date,
+        shiftStartTime: shift.start_time,
+        shiftEndTime: shift.end_time,
+        swapId: swap.id,
+        managerNotes: input.managerNotes,
+      }).catch((err) => console.error('[NOTIFICATION] Failed to notify swap approved:', err));
+
       return { swap: updatedSwap };
     }),
 
@@ -281,10 +322,10 @@ export const swapRouter = router({
         });
       }
 
-      // Fetch the swap request
+      // Fetch the swap request with shift details
       const { data: swap, error: fetchError } = await ctx.supabase
         .from('swap_requests')
-        .select('*')
+        .select('*, shift:shifts(*)')
         .eq('id', input.id)
         .single();
 
@@ -320,6 +361,25 @@ export const swapRouter = router({
           message: `Failed to deny swap request: ${error.message}`,
         });
       }
+
+      // Notify the requester that their swap was denied
+      const shift = swap.shift;
+      const { data: requesterUser } = await ctx.supabase
+        .from('users')
+        .select('email')
+        .eq('id', swap.requested_by)
+        .single();
+
+      notifySwapDenied({
+        supabase: ctx.supabase,
+        requesterId: swap.requested_by,
+        requesterEmail: requesterUser?.email ?? '',
+        shiftDate: shift.date,
+        shiftStartTime: shift.start_time,
+        shiftEndTime: shift.end_time,
+        swapId: swap.id,
+        managerNotes: input.managerNotes,
+      }).catch((err) => console.error('[NOTIFICATION] Failed to notify swap denied:', err));
 
       return { swap: updatedSwap };
     }),
