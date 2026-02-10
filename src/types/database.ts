@@ -62,6 +62,27 @@ export interface ClaimWithUser extends Claim {
   user: User;
 }
 
+// Swap Request types
+export type SwapRequestStatus = 'pending' | 'approved' | 'denied' | 'cancelled';
+
+export interface SwapRequest {
+  id: string;
+  shift_id: string;
+  requester_id: string;
+  reason: string | null;
+  status: SwapRequestStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SwapRequestWithDetails extends SwapRequest {
+  shift: Shift;
+  requester: User;
+  reviewer?: User;
+}
+
 // Database schema type for Supabase
 export interface Database {
   public: {
@@ -85,6 +106,11 @@ export interface Database {
         Row: Claim;
         Insert: Omit<Claim, 'id' | 'created_at' | 'claimed_at'>;
         Update: Partial<Omit<Claim, 'id'>>;
+      };
+      swap_requests: {
+        Row: SwapRequest;
+        Insert: Omit<SwapRequest, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<SwapRequest, 'id'>>;
       };
     };
   };

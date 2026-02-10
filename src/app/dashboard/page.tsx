@@ -49,7 +49,29 @@ export default async function DashboardPage() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">ShiftSwap</h1>
+          <div className="flex items-center gap-6">
+            <h1 className="text-2xl font-bold text-gray-900">ShiftSwap</h1>
+            <nav className="hidden md:flex items-center gap-4">
+              <Link
+                href="/dashboard"
+                className="text-sm text-gray-900 font-medium border-b-2 border-blue-600 pb-1"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/schedule"
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Schedule
+              </Link>
+              <Link
+                href="/swaps"
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Swap Requests
+              </Link>
+            </nav>
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-gray-600">
               {profile?.name || user.email}
@@ -96,12 +118,12 @@ export default async function DashboardPage() {
           </Link>
 
           <Link
-            href="/shifts"
+            href="/schedule"
             className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-6 text-center transition-colors"
           >
             <div className="text-3xl mb-2">📅</div>
-            <div className="text-xl font-semibold">My Shifts</div>
-            <div className="text-sm opacity-90">View your schedule</div>
+            <div className="text-xl font-semibold">Schedule</div>
+            <div className="text-sm opacity-90">View weekly calendar</div>
           </Link>
         </div>
 
