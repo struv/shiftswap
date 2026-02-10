@@ -163,6 +163,12 @@ export default async function DashboardPage() {
               >
                 Manage Users
               </Link>
+              <Link
+                href="/dashboard/import"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Import Shifts (CSV)
+              </Link>
             </div>
           </div>
         ) : null}
