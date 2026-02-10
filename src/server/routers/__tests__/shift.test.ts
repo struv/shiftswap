@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server';
 /**
  * Tests for the shift router.
  *
- * We mock the Supabase client and context to test business logic
+ * We mock the DB client and context to test business logic
  * (role checks, overlap validation, error handling) without
  * hitting a real database.
  */
@@ -23,7 +23,7 @@ function createQueryBuilder(result: { data: unknown; error: unknown } = { data: 
   return builder;
 }
 
-function createMockSupabase() {
+function createMockDb() {
   const queryResults = new Map<string, { data: unknown; error: unknown }>();
   const fromMock = vi.fn().mockImplementation((table: string) => {
     const result = queryResults.get(table) ?? { data: null, error: null };
@@ -47,11 +47,11 @@ import { createCallerFactory } from '../../trpc';
 const createCaller = createCallerFactory(shiftRouter);
 
 describe('shiftRouter', () => {
-  let mockSupabase: ReturnType<typeof createMockSupabase>;
+  let mockDb: ReturnType<typeof createMockDb>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSupabase = createMockSupabase();
+    mockDb = createMockDb();
   });
 
   describe('shift.create', () => {
@@ -68,7 +68,7 @@ describe('shiftRouter', () => {
   });
 });
 
-// Since the router uses orgProcedure middleware which requires a full Supabase setup,
+// Since the router uses orgProcedure middleware which requires a full DB setup,
 // we test the validation logic in isolation and the router behavior via integration-style tests.
 describe('Shift validation logic', () => {
   describe('time range validation', () => {

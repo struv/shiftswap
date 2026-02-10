@@ -4,7 +4,7 @@
  * This module provides a stubbed email sending function that logs
  * instead of sending actual emails. Enable by setting ENABLE_EMAIL=true.
  *
- * TODO: Integrate Resend or Supabase edge function for actual email delivery.
+ * TODO: Integrate Resend or other email provider for actual email delivery.
  */
 
 const ENABLE_EMAIL = process.env.ENABLE_EMAIL === 'true';
@@ -53,7 +53,7 @@ export async function sendEmail(
     return;
   }
 
-  // TODO: Integrate Resend or Supabase edge function here
+  // TODO: Integrate Resend or other email provider here
   // Example with Resend:
   // const resend = new Resend(process.env.RESEND_API_KEY);
   // await resend.emails.send({

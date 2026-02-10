@@ -31,7 +31,7 @@ export const swapRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      let query = ctx.supabase
+      let query = ctx.db
         .from('swap_requests')
         .select('*, shift:shifts(*, user:users(id, name, email)), requester:users!swap_requests_requested_by_fkey(id, name, email)');
 
@@ -70,7 +70,7 @@ export const swapRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify the shift exists and belongs to the requester
-      const { data: shift, error: shiftError } = await ctx.supabase
+      const { data: shift, error: shiftError } = await ctx.db
         .from('shifts')
         .select('*')
         .eq('id', input.shiftId)
@@ -91,7 +91,7 @@ export const swapRouter = router({
       }
 
       // Check for existing pending swap request on this shift
-      const { data: existing } = await ctx.supabase
+      const { data: existing } = await ctx.db
         .from('swap_requests')
         .select('id')
         .eq('shift_id', input.shiftId)
@@ -106,7 +106,7 @@ export const swapRouter = router({
 
       // If replacement user specified, verify they exist
       if (input.replacementUserId) {
-        const { data: replacement, error: replError } = await ctx.supabase
+        const { data: replacement, error: replError } = await ctx.db
           .from('users')
           .select('id')
           .eq('id', input.replacementUserId)
@@ -127,7 +127,7 @@ export const swapRouter = router({
         }
       }
 
-      const { data: swap, error } = await ctx.supabase
+      const { data: swap, error } = await ctx.db
         .from('swap_requests')
         .insert({
           shift_id: input.shiftId,
@@ -147,14 +147,14 @@ export const swapRouter = router({
       }
 
       // Notify managers about the new swap request
-      const { data: requester } = await ctx.supabase
+      const { data: requester } = await ctx.db
         .from('users')
         .select('name')
         .eq('id', ctx.user.id)
         .single();
 
       notifySwapRequested({
-        supabase: ctx.supabase,
+        db: ctx.db,
         orgId: ctx.orgId,
         requesterId: ctx.user.id,
         requesterName: requester?.name ?? ctx.user.email,
@@ -188,7 +188,7 @@ export const swapRouter = router({
       }
 
       // Fetch the swap request
-      const { data: swap, error: fetchError } = await ctx.supabase
+      const { data: swap, error: fetchError } = await ctx.db
         .from('swap_requests')
         .select('*, shift:shifts(*)')
         .eq('id', input.id)
@@ -218,7 +218,7 @@ export const swapRouter = router({
       }
 
       // Verify replacement user exists
-      const { data: replacement, error: replError } = await ctx.supabase
+      const { data: replacement, error: replError } = await ctx.db
         .from('users')
         .select('id')
         .eq('id', replacementUserId)
@@ -233,7 +233,7 @@ export const swapRouter = router({
 
       // Check replacement user doesn't have overlapping shift
       const shift = swap.shift;
-      const { data: overlaps } = await ctx.supabase
+      const { data: overlaps } = await ctx.db
         .from('shifts')
         .select('id')
         .eq('user_id', replacementUserId)
@@ -250,7 +250,7 @@ export const swapRouter = router({
       }
 
       // Update swap request status
-      const { data: updatedSwap, error: updateError } = await ctx.supabase
+      const { data: updatedSwap, error: updateError } = await ctx.db
         .from('swap_requests')
         .update({
           status: 'approved',
@@ -271,7 +271,7 @@ export const swapRouter = router({
       }
 
       // Reassign the shift to the replacement user
-      const { error: shiftError } = await ctx.supabase
+      const { error: shiftError } = await ctx.db
         .from('shifts')
         .update({ user_id: replacementUserId })
         .eq('id', swap.shift_id);
@@ -284,14 +284,14 @@ export const swapRouter = router({
       }
 
       // Notify the requester that their swap was approved
-      const { data: requesterUser } = await ctx.supabase
+      const { data: requesterUser } = await ctx.db
         .from('users')
         .select('email')
         .eq('id', swap.requested_by)
         .single();
 
       notifySwapApproved({
-        supabase: ctx.supabase,
+        db: ctx.db,
         requesterId: swap.requested_by,
         requesterEmail: requesterUser?.email ?? '',
         shiftDate: shift.date,
@@ -323,7 +323,7 @@ export const swapRouter = router({
       }
 
       // Fetch the swap request with shift details
-      const { data: swap, error: fetchError } = await ctx.supabase
+      const { data: swap, error: fetchError } = await ctx.db
         .from('swap_requests')
         .select('*, shift:shifts(*)')
         .eq('id', input.id)
@@ -343,7 +343,7 @@ export const swapRouter = router({
         });
       }
 
-      const { data: updatedSwap, error } = await ctx.supabase
+      const { data: updatedSwap, error } = await ctx.db
         .from('swap_requests')
         .update({
           status: 'denied',
@@ -364,14 +364,14 @@ export const swapRouter = router({
 
       // Notify the requester that their swap was denied
       const shift = swap.shift;
-      const { data: requesterUser } = await ctx.supabase
+      const { data: requesterUser } = await ctx.db
         .from('users')
         .select('email')
         .eq('id', swap.requested_by)
         .single();
 
       notifySwapDenied({
-        supabase: ctx.supabase,
+        db: ctx.db,
         requesterId: swap.requested_by,
         requesterEmail: requesterUser?.email ?? '',
         shiftDate: shift.date,
@@ -390,7 +390,7 @@ export const swapRouter = router({
   cancel: orgProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const { data: swap, error: fetchError } = await ctx.supabase
+      const { data: swap, error: fetchError } = await ctx.db
         .from('swap_requests')
         .select('*')
         .eq('id', input.id)
@@ -417,7 +417,7 @@ export const swapRouter = router({
         });
       }
 
-      const { data: updatedSwap, error } = await ctx.supabase
+      const { data: updatedSwap, error } = await ctx.db
         .from('swap_requests')
         .update({ status: 'cancelled' })
         .eq('id', input.id)

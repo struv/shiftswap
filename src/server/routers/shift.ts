@@ -15,14 +15,14 @@ import { router, orgProcedure } from '../trpc';
  */
 async function hasOverlappingShift(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  db: any,
   userId: string,
   date: string,
   startTime: string,
   endTime: string,
   excludeShiftId?: string
 ): Promise<boolean> {
-  let query = supabase
+  let query = db
     .from('shifts')
     .select('id')
     .eq('user_id', userId)
@@ -50,7 +50,7 @@ export const shiftRouter = router({
       })
     )
     .query(async ({ ctx, input }) => {
-      let query = ctx.supabase.from('shifts').select('*, user:users(id, name, email)');
+      let query = ctx.db.from('shifts').select('*, user:users(id, name, email)');
 
       if (input.date) {
         query = query.eq('date', input.date);
@@ -107,7 +107,7 @@ export const shiftRouter = router({
 
       // Validate: no overlapping shifts for this user on this date
       const overlap = await hasOverlappingShift(
-        ctx.supabase,
+        ctx.db,
         input.userId,
         input.date,
         input.startTime,
@@ -120,7 +120,7 @@ export const shiftRouter = router({
         });
       }
 
-      const { data: shift, error } = await ctx.supabase
+      const { data: shift, error } = await ctx.db
         .from('shifts')
         .insert({
           user_id: input.userId,
@@ -165,7 +165,7 @@ export const shiftRouter = router({
       }
 
       // Fetch the existing shift
-      const { data: existing, error: fetchError } = await ctx.supabase
+      const { data: existing, error: fetchError } = await ctx.db
         .from('shifts')
         .select('*')
         .eq('id', input.id)
@@ -193,7 +193,7 @@ export const shiftRouter = router({
 
       // Validate: no overlapping shifts (exclude current shift)
       const overlap = await hasOverlappingShift(
-        ctx.supabase,
+        ctx.db,
         updatedUserId,
         updatedDate,
         updatedStartTime,
@@ -216,7 +216,7 @@ export const shiftRouter = router({
       if (input.role !== undefined) updateData.role = input.role;
       if (input.department !== undefined) updateData.department = input.department;
 
-      const { data: shift, error } = await ctx.supabase
+      const { data: shift, error } = await ctx.db
         .from('shifts')
         .update(updateData)
         .eq('id', input.id)
@@ -259,7 +259,7 @@ export const shiftRouter = router({
 
       // Look up all unique emails to get user IDs
       const uniqueEmails = [...new Set(input.shifts.map((s) => s.email))];
-      const { data: users, error: userError } = await ctx.supabase
+      const { data: users, error: userError } = await ctx.db
         .from('users')
         .select('id, email')
         .in('email', uniqueEmails);
@@ -293,7 +293,7 @@ export const shiftRouter = router({
           continue;
         }
 
-        const { error } = await ctx.supabase.from('shifts').insert({
+        const { error } = await ctx.db.from('shifts').insert({
           user_id: userId,
           date: shift.date,
           start_time: shift.startTime,
@@ -323,7 +323,7 @@ export const shiftRouter = router({
         });
       }
 
-      const { error } = await ctx.supabase
+      const { error } = await ctx.db
         .from('shifts')
         .delete()
         .eq('id', input.id);

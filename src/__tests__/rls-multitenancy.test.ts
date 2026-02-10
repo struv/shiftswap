@@ -178,7 +178,7 @@ describe('RLS multi-tenancy: org context middleware', () => {
     // Test the orgContext module independently
     const { getOrgContext } = await import('../lib/orgContext');
 
-    const mockSupabase = {
+    const mockDb = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
@@ -195,7 +195,7 @@ describe('RLS multi-tenancy: org context middleware', () => {
 
     await expect(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      getOrgContext(mockSupabase as any, 'user-no-org'),
+      getOrgContext(mockDb as any, 'user-no-org'),
     ).rejects.toThrow('User is not a member of any organization');
   });
 
@@ -212,7 +212,7 @@ describe('RLS multi-tenancy: org context middleware', () => {
       joined_at: new Date().toISOString(),
     };
 
-    const mockSupabase = {
+    const mockDb = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
@@ -229,7 +229,7 @@ describe('RLS multi-tenancy: org context middleware', () => {
 
     const ctx = await getOrgContext(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mockSupabase as any,
+      mockDb as any,
       'user-staff-001',
     );
 

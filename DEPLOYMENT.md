@@ -1,41 +1,24 @@
 # ShiftSwap Deployment Guide
 
-This guide walks through deploying ShiftSwap on **Vercel** with **Supabase** for auth and **Neon** for Postgres.
+This guide walks through deploying ShiftSwap on **Vercel** with **Neon Auth** for authentication and **Neon Postgres** for the database.
 
 ## Prerequisites
 
 - [Vercel](https://vercel.com) account
-- [Supabase](https://supabase.com) account
-- [Neon](https://neon.tech) account (or use Supabase's hosted Postgres)
+- [Neon](https://neon.tech) account (provides both Auth and Postgres)
 - Git repository connected to Vercel
 
-## 1. Provision Supabase Project
-
-1. Create a new Supabase project at [app.supabase.com](https://app.supabase.com).
-2. Note the following from **Project Settings > API**:
-   - `NEXT_PUBLIC_SUPABASE_URL` — your project URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the `anon` / `public` key
-3. Run the SQL migrations in **SQL Editor**:
-   - `supabase/migrations/001_initial_schema.sql`
-   - `supabase/migrations/002_org_context.sql`
-4. Under **Authentication > URL Configuration**, set the Site URL to your Vercel production domain (e.g., `https://shiftswap.vercel.app`).
-5. Add redirect URLs:
-   - `https://shiftswap.vercel.app/auth/callback`
-   - `http://localhost:3000/auth/callback` (for local dev)
-
-## 2. Provision Neon Database
+## 1. Provision Neon Project
 
 1. Create a new Neon project at [console.neon.tech](https://console.neon.tech).
 2. Copy the connection string — this is your `DATABASE_URL`.
-3. Run the same migrations against Neon if using it as primary DB:
+3. Enable **Neon Auth** in the project settings and note the `NEON_AUTH_BASE_URL`.
+4. Run the database migrations:
    ```bash
-   psql $DATABASE_URL < supabase/migrations/001_initial_schema.sql
-   psql $DATABASE_URL < supabase/migrations/002_org_context.sql
+   npx drizzle-kit migrate
    ```
 
-> **Note:** If you prefer Supabase's built-in Postgres, skip Neon and use the Supabase connection string as `DATABASE_URL`.
-
-## 3. Deploy to Vercel
+## 2. Deploy to Vercel
 
 ### Option A: Vercel Dashboard
 
@@ -43,13 +26,12 @@ This guide walks through deploying ShiftSwap on **Vercel** with **Supabase** for
 2. Vercel auto-detects **Next.js** — accept the defaults.
 3. Add environment variables (Settings > Environment Variables):
 
-   | Variable                        | Value                          | Environments    |
-   | ------------------------------- | ------------------------------ | --------------- |
-   | `NEXT_PUBLIC_SUPABASE_URL`      | `https://xxx.supabase.co`      | All             |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...`                       | All             |
-   | `DATABASE_URL`                  | `postgresql://...`             | All             |
-   | `NEXT_PUBLIC_SITE_URL`          | `https://shiftswap.vercel.app` | Production      |
-   | `NEXT_PUBLIC_SITE_URL`          | `http://localhost:3000`        | Development     |
+   | Variable                | Value                          | Environments    |
+   | ----------------------- | ------------------------------ | --------------- |
+   | `NEON_AUTH_BASE_URL`    | `https://your-auth.neon.tech`  | All             |
+   | `DATABASE_URL`          | `postgresql://...`             | All             |
+   | `NEXT_PUBLIC_SITE_URL`  | `https://shiftswap.vercel.app` | Production      |
+   | `NEXT_PUBLIC_SITE_URL`  | `http://localhost:3000`        | Development     |
 
 4. Click **Deploy**.
 
@@ -59,23 +41,21 @@ This guide walks through deploying ShiftSwap on **Vercel** with **Supabase** for
 npm i -g vercel
 vercel login
 vercel link
-vercel env add NEXT_PUBLIC_SUPABASE_URL
-vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
+vercel env add NEON_AUTH_BASE_URL
 vercel env add DATABASE_URL
 vercel env add NEXT_PUBLIC_SITE_URL
 vercel --prod
 ```
 
-## 4. Post-Deployment Checklist
+## 3. Post-Deployment Checklist
 
 - [ ] Visit the production URL and verify the landing page loads
 - [ ] Create a test account via signup
-- [ ] Confirm email verification works (check Supabase Auth logs)
 - [ ] Log in and verify dashboard renders
 - [ ] Check browser console for errors
 - [ ] Verify security headers (`X-Content-Type-Options`, `X-Frame-Options`, etc.)
 
-## 5. Local Development
+## 4. Local Development
 
 ```bash
 # 1. Clone the repository
@@ -86,7 +66,7 @@ npm install
 
 # 3. Copy environment variables
 cp .env.example .env.local
-# Edit .env.local with your Supabase and Neon credentials
+# Edit .env.local with your Neon Auth and Postgres credentials
 
 # 4. Run the dev server
 npm run dev
@@ -94,23 +74,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## 6. Environment Variables Reference
+## 5. Environment Variables Reference
 
-| Variable                        | Required | Description                                    |
-| ------------------------------- | -------- | ---------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Yes      | Supabase project URL                           |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes      | Supabase anonymous/public API key              |
-| `DATABASE_URL`                  | Yes      | Neon (or Supabase) Postgres connection string  |
-| `NEXT_PUBLIC_SITE_URL`          | Yes      | App URL for auth redirects                     |
-| `SUPABASE_SERVICE_ROLE_KEY`     | No       | Supabase service role key (admin operations)   |
+| Variable               | Required | Description                                    |
+| ---------------------- | -------- | ---------------------------------------------- |
+| `NEON_AUTH_BASE_URL`   | Yes      | Neon Auth service endpoint                     |
+| `DATABASE_URL`         | Yes      | Neon Postgres connection string                |
+| `NEXT_PUBLIC_SITE_URL` | Yes      | App URL for redirects                          |
 
 ## Troubleshooting
 
 **Build fails with missing env vars:**
-Ensure all `NEXT_PUBLIC_*` variables are set for all environments in Vercel.
+Ensure `NEON_AUTH_BASE_URL` and `DATABASE_URL` are set for all environments in Vercel.
 
-**Auth redirects to wrong URL:**
-Update the Site URL and redirect URLs in Supabase Auth settings.
+**Auth not working:**
+Verify `NEON_AUTH_BASE_URL` is correct and the Neon Auth service is enabled for your project.
 
 **Database connection errors:**
 Verify `DATABASE_URL` includes `?sslmode=require` for Neon connections.

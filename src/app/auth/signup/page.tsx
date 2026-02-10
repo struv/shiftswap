@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { signupAction } from './actions';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -11,7 +11,6 @@ export default function SignupPage() {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -19,40 +18,16 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-        },
-      },
-    });
+    const result = await signupAction(email, password, name);
 
-    if (error) {
-      setError(error.message);
+    if (result.error) {
+      setError(result.error);
       setLoading(false);
     } else {
-      setSuccess(true);
+      router.push('/dashboard');
+      router.refresh();
     }
   };
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full space-y-8 text-center">
-          <div className="bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-lg">
-            <h2 className="text-xl font-semibold mb-2">Check your email!</h2>
-            <p>We sent you a confirmation link. Click it to activate your account.</p>
-          </div>
-          <Link href="/auth/login" className="text-blue-600 hover:text-blue-500">
-            Return to login
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">

@@ -1,6 +1,6 @@
-import { SupabaseClient } from '@supabase/supabase-js';
 import { TRPCError } from '@trpc/server';
-import { OrgMember, OrgRole } from '@/types/database';
+import { OrgRole } from '@/types/database';
+import { DbClient } from '@/lib/db-client';
 
 export interface OrgContext {
   orgId: string;
@@ -17,8 +17,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
  * Throws FORBIDDEN if the user has no org membership.
  */
 export async function getOrgContext(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any>,
+  db: DbClient,
   userId: string
 ): Promise<OrgContext> {
   // Check cache first
@@ -28,12 +27,12 @@ export async function getOrgContext(
   }
 
   // Query org_members to find user's org membership
-  const { data: membership, error } = await supabase
+  const { data: membership, error } = await db
     .from('org_members')
     .select('*')
     .eq('user_id', userId)
     .limit(1)
-    .single<OrgMember>();
+    .single();
 
   if (error || !membership) {
     throw new TRPCError({
@@ -61,11 +60,10 @@ export async function getOrgContext(
  * Must be called within a transaction or at the start of a request.
  */
 export async function setOrgSessionVar(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: SupabaseClient<any>,
+  db: DbClient,
   orgId: string
 ): Promise<void> {
-  const { error } = await supabase.rpc('set_org_context', {
+  const { error } = await db.rpc('set_org_context', {
     org_id: orgId,
   });
 

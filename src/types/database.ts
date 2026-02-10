@@ -1,5 +1,4 @@
 // Database types for ShiftSwap
-// These match our Supabase schema
 
 export type UserRole = 'staff' | 'manager' | 'admin';
 export type OrgRole = 'admin' | 'manager' | 'staff';
@@ -122,50 +121,3 @@ export interface ClaimWithUser extends Claim {
   user: User;
 }
 
-// Database schema type for Supabase
-export interface Database {
-  public: {
-    Tables: {
-      organizations: {
-        Row: Organization;
-        Insert: Omit<Organization, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<Organization, 'id'>>;
-      };
-      org_members: {
-        Row: OrgMember;
-        Insert: Omit<OrgMember, 'id' | 'joined_at'>;
-        Update: Partial<Omit<OrgMember, 'id'>>;
-      };
-      users: {
-        Row: User;
-        Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<User, 'id'>>;
-      };
-      shifts: {
-        Row: Shift;
-        Insert: Omit<Shift, 'id' | 'created_at'>;
-        Update: Partial<Omit<Shift, 'id'>>;
-      };
-      callouts: {
-        Row: CallOut;
-        Insert: Omit<CallOut, 'id' | 'created_at' | 'updated_at' | 'posted_at'>;
-        Update: Partial<Omit<CallOut, 'id'>>;
-      };
-      claims: {
-        Row: Claim;
-        Insert: Omit<Claim, 'id' | 'created_at' | 'claimed_at'>;
-        Update: Partial<Omit<Claim, 'id'>>;
-      };
-      swap_requests: {
-        Row: SwapRequest;
-        Insert: Omit<SwapRequest, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<SwapRequest, 'id'>>;
-      };
-      notifications: {
-        Row: Notification;
-        Insert: Omit<Notification, 'id' | 'created_at'>;
-        Update: Partial<Omit<Notification, 'id'>>;
-      };
-    };
-  };
-}

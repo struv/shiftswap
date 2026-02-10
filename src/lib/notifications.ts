@@ -4,12 +4,12 @@
  * Used by routers to create notifications when swap events occur.
  * Also triggers email stubs when applicable.
  */
-import { SupabaseClient } from '@supabase/supabase-js';
+import { DbClient } from '@/lib/db-client';
 import { NotificationType } from '@/types/database';
 import { sendEmail, EmailTemplate } from '@/lib/email';
 
 interface CreateNotificationParams {
-  supabase: SupabaseClient;
+  db: DbClient;
   userId: string;
   type: NotificationType;
   title: string;
@@ -23,14 +23,14 @@ interface CreateNotificationParams {
  * blocking the primary operation.
  */
 export async function createNotification({
-  supabase,
+  db,
   userId,
   type,
   title,
   message,
   link,
 }: CreateNotificationParams): Promise<void> {
-  const { error } = await supabase.from('notifications').insert({
+  const { error } = await db.from('notifications').insert({
     user_id: userId,
     type,
     title,
@@ -48,7 +48,7 @@ export async function createNotification({
  * Notify managers in the org about a new swap request.
  */
 export async function notifySwapRequested({
-  supabase,
+  db,
   orgId,
   requesterId,
   requesterName,
@@ -57,7 +57,7 @@ export async function notifySwapRequested({
   shiftEndTime,
   swapId,
 }: {
-  supabase: SupabaseClient;
+  db: DbClient;
   orgId: string;
   requesterId: string;
   requesterName: string;
@@ -67,9 +67,9 @@ export async function notifySwapRequested({
   swapId: string;
 }): Promise<void> {
   // Find managers/admins in the org
-  const { data: managers } = await supabase
+  const { data: managers } = await db
     .from('org_members')
-    .select('user_id, user:users(email)')
+    .select('user_id')
     .eq('org_id', orgId)
     .in('role', ['manager', 'admin'])
     .neq('user_id', requesterId);
@@ -80,7 +80,7 @@ export async function notifySwapRequested({
 
   for (const manager of managers) {
     await createNotification({
-      supabase,
+      db,
       userId: manager.user_id,
       type: 'swap_request',
       title: 'New Swap Request',
@@ -88,10 +88,15 @@ export async function notifySwapRequested({
       link: `/swaps/${swapId}`,
     });
 
-    // Trigger email stub
-    const email = (manager.user as { email?: string } | null)?.email;
-    if (email) {
-      await sendEmail(email, 'swap_request' as EmailTemplate, {
+    // Fetch manager email for email notification
+    const { data: managerUser } = await db
+      .from('users')
+      .select('email')
+      .eq('id', manager.user_id)
+      .single();
+
+    if (managerUser?.email) {
+      await sendEmail(managerUser.email, 'swap_request' as EmailTemplate, {
         date: shiftDate,
         startTime: shiftStartTime,
         endTime: shiftEndTime,
@@ -105,7 +110,7 @@ export async function notifySwapRequested({
  * Notify the requester that their swap was approved.
  */
 export async function notifySwapApproved({
-  supabase,
+  db,
   requesterId,
   requesterEmail,
   shiftDate,
@@ -114,7 +119,7 @@ export async function notifySwapApproved({
   swapId,
   managerNotes,
 }: {
-  supabase: SupabaseClient;
+  db: DbClient;
   requesterId: string;
   requesterEmail: string;
   shiftDate: string;
@@ -127,7 +132,7 @@ export async function notifySwapApproved({
     (managerNotes ? ` Notes: ${managerNotes}` : '');
 
   await createNotification({
-    supabase,
+    db,
     userId: requesterId,
     type: 'swap_approved',
     title: 'Swap Request Approved',
@@ -147,7 +152,7 @@ export async function notifySwapApproved({
  * Notify the requester that their swap was denied.
  */
 export async function notifySwapDenied({
-  supabase,
+  db,
   requesterId,
   requesterEmail,
   shiftDate,
@@ -156,7 +161,7 @@ export async function notifySwapDenied({
   swapId,
   managerNotes,
 }: {
-  supabase: SupabaseClient;
+  db: DbClient;
   requesterId: string;
   requesterEmail: string;
   shiftDate: string;
@@ -169,7 +174,7 @@ export async function notifySwapDenied({
     (managerNotes ? ` Notes: ${managerNotes}` : '');
 
   await createNotification({
-    supabase,
+    db,
     userId: requesterId,
     type: 'swap_denied',
     title: 'Swap Request Denied',

@@ -1,36 +1,50 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { User, UserSession } from '@/types/database';
+import { UserSession } from '@/types/database';
+import { neonAuthGetUser, neonAuthRefreshToken } from '@/lib/neon-auth';
+import { getSessionTokens, setSessionCookies } from '@/lib/session';
+import { query } from '@/lib/db';
 
 /**
  * Server-side auth guard for protected pages and server actions.
- * Validates the session, fetches the user profile, and returns a UserSession.
- * Redirects to /auth/login if the user is not authenticated.
+ * Validates the Neon Auth session token, fetches the user profile,
+ * and returns a UserSession. Redirects to /auth/login if not authenticated.
  */
 export async function requireAuth(): Promise<UserSession> {
-  const supabase = await createClient();
+  const { accessToken, refreshToken } = await getSessionTokens();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!accessToken) {
+    redirect('/auth/login');
+  }
 
-  if (!user) {
+  // Validate the access token
+  let authUser = await neonAuthGetUser(accessToken);
+
+  // If token expired, try refreshing
+  if (!authUser && refreshToken) {
+    const refreshed = await neonAuthRefreshToken(refreshToken);
+    if (refreshed) {
+      await setSessionCookies(refreshed.access_token, refreshToken);
+      authUser = await neonAuthGetUser(refreshed.access_token);
+    }
+  }
+
+  if (!authUser) {
     redirect('/auth/login');
   }
 
   // Fetch user profile from the users table
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single() as { data: User | null };
+  const { rows } = await query(
+    'SELECT * FROM users WHERE id = $1 LIMIT 1',
+    [authUser.id]
+  );
+  const profile = rows[0] ?? null;
 
   if (!profile) {
     // User exists in auth but not in users table — fallback to auth metadata
     return {
-      id: user.id,
-      email: user.email ?? '',
-      name: user.user_metadata?.name ?? user.email?.split('@')[0] ?? '',
+      id: authUser.id,
+      email: authUser.email,
+      name: authUser.name ?? authUser.email.split('@')[0],
       role: 'staff',
       department: null,
     };
@@ -43,4 +57,27 @@ export async function requireAuth(): Promise<UserSession> {
     role: profile.role,
     department: profile.department,
   };
+}
+
+/**
+ * Get the current auth user without redirecting (returns null if not authenticated).
+ */
+export async function getAuthUser(): Promise<{ id: string; email: string } | null> {
+  const { accessToken, refreshToken } = await getSessionTokens();
+
+  if (!accessToken) return null;
+
+  let authUser = await neonAuthGetUser(accessToken);
+
+  if (!authUser && refreshToken) {
+    const refreshed = await neonAuthRefreshToken(refreshToken);
+    if (refreshed) {
+      await setSessionCookies(refreshed.access_token, refreshToken);
+      authUser = await neonAuthGetUser(refreshed.access_token);
+    }
+  }
+
+  if (!authUser) return null;
+
+  return { id: authUser.id, email: authUser.email };
 }

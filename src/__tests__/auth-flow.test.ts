@@ -1,27 +1,38 @@
 /**
  * Integration test: Auth flow
  * signup → login → protected route guard → logout
+ *
+ * Tests the Neon Auth integration by mocking the auth API calls
+ * and database queries.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
-// Mock Supabase client
+// Mock Neon Auth API
 // ---------------------------------------------------------------------------
 
 const mockSignUp = vi.fn();
-const mockSignInWithPassword = vi.fn();
-const mockSignOut = vi.fn();
+const mockSignIn = vi.fn();
 const mockGetUser = vi.fn();
+const mockSignOut = vi.fn();
+
+function createMockAuthClient() {
+  return {
+    signUp: mockSignUp,
+    signIn: mockSignIn,
+    getUser: mockGetUser,
+    signOut: mockSignOut,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mock DB client
+// ---------------------------------------------------------------------------
+
 const mockFrom = vi.fn();
 
-function createMockSupabase() {
+function createMockDbClient() {
   return {
-    auth: {
-      signUp: mockSignUp,
-      signInWithPassword: mockSignInWithPassword,
-      signOut: mockSignOut,
-      getUser: mockGetUser,
-    },
     from: mockFrom,
   };
 }
@@ -38,7 +49,12 @@ describe('Auth flow: signup → login → protected route → logout', () => {
   const testUser = {
     id: '550e8400-e29b-41d4-a716-446655440000',
     email: 'test@example.com',
-    user_metadata: { name: 'Test User' },
+    name: 'Test User',
+  };
+
+  const testTokens = {
+    access_token: 'test-access-token',
+    refresh_token: 'test-refresh-token',
   };
 
   const testProfile = {
@@ -51,169 +67,160 @@ describe('Auth flow: signup → login → protected route → logout', () => {
     updated_at: new Date().toISOString(),
   };
 
-  it('1. signup: creates a new account', async () => {
+  it('1. signup: creates a new account via Neon Auth', async () => {
     mockSignUp.mockResolvedValue({
-      data: { user: testUser, session: null },
+      data: { user: testUser, tokens: testTokens },
       error: null,
     });
 
-    const supabase = createMockSupabase();
-    const { data, error } = await supabase.auth.signUp({
+    const auth = createMockAuthClient();
+    const result = await auth.signUp({
       email: 'test@example.com',
       password: 'password123',
-      options: { data: { name: 'Test User' } },
+      name: 'Test User',
     });
 
-    expect(error).toBeNull();
-    expect(data.user).toBeDefined();
-    expect(data.user.email).toBe('test@example.com');
+    expect(result.error).toBeNull();
+    expect(result.data.user).toBeDefined();
+    expect(result.data.user.email).toBe('test@example.com');
+    expect(result.data.tokens.access_token).toBeDefined();
     expect(mockSignUp).toHaveBeenCalledWith({
       email: 'test@example.com',
       password: 'password123',
-      options: { data: { name: 'Test User' } },
+      name: 'Test User',
     });
   });
 
   it('2. signup: rejects weak passwords', async () => {
     mockSignUp.mockResolvedValue({
-      data: { user: null, session: null },
-      error: { message: 'Password should be at least 6 characters' },
+      data: null,
+      error: 'Password should be at least 6 characters',
     });
 
-    const supabase = createMockSupabase();
-    const { error } = await supabase.auth.signUp({
+    const auth = createMockAuthClient();
+    const result = await auth.signUp({
       email: 'test@example.com',
       password: '123',
     });
 
-    expect(error).toBeDefined();
-    expect(error!.message).toContain('6 characters');
+    expect(result.error).toBeDefined();
+    expect(result.error).toContain('6 characters');
   });
 
   it('3. login: signs in with valid credentials', async () => {
-    const mockSession = {
-      access_token: 'test-token',
-      refresh_token: 'test-refresh',
-      user: testUser,
-    };
-    mockSignInWithPassword.mockResolvedValue({
-      data: { user: testUser, session: mockSession },
+    mockSignIn.mockResolvedValue({
+      data: { user: testUser, tokens: testTokens },
       error: null,
     });
 
-    const supabase = createMockSupabase();
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const auth = createMockAuthClient();
+    const result = await auth.signIn({
       email: 'test@example.com',
       password: 'password123',
     });
 
-    expect(error).toBeNull();
-    expect(data.session).toBeDefined();
-    expect(data.session.access_token).toBe('test-token');
-    expect(data.user.email).toBe('test@example.com');
+    expect(result.error).toBeNull();
+    expect(result.data.tokens).toBeDefined();
+    expect(result.data.tokens.access_token).toBe('test-access-token');
+    expect(result.data.user.email).toBe('test@example.com');
   });
 
   it('4. login: rejects invalid credentials', async () => {
-    mockSignInWithPassword.mockResolvedValue({
-      data: { user: null, session: null },
-      error: { message: 'Invalid login credentials' },
+    mockSignIn.mockResolvedValue({
+      data: null,
+      error: 'Invalid login credentials',
     });
 
-    const supabase = createMockSupabase();
-    const { error } = await supabase.auth.signInWithPassword({
+    const auth = createMockAuthClient();
+    const result = await auth.signIn({
       email: 'test@example.com',
       password: 'wrong-password',
     });
 
-    expect(error).toBeDefined();
-    expect(error!.message).toBe('Invalid login credentials');
+    expect(result.error).toBeDefined();
+    expect(result.error).toBe('Invalid login credentials');
   });
 
-  it('5. protected route: allows access with valid session', async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: testUser },
-      error: null,
-    });
+  it('5. protected route: allows access with valid session token', async () => {
+    mockGetUser.mockResolvedValue(testUser);
 
     const singleMock = vi.fn().mockResolvedValue({ data: testProfile, error: null });
     const eqMock = vi.fn().mockReturnValue({ single: singleMock });
     const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
     mockFrom.mockReturnValue({ select: selectMock });
 
-    const supabase = createMockSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const auth = createMockAuthClient();
+    const user = await auth.getUser('test-access-token');
 
     expect(user).toBeDefined();
     expect(user!.id).toBe(testUser.id);
 
     // Simulate profile fetch (like requireAuth does)
-    const { data: profile } = await supabase.from('users').select('*').eq('id', user!.id).single();
+    const db = createMockDbClient();
+    const { data: profile } = await db.from('users').select('*').eq('id', user!.id).single();
     expect(profile).toBeDefined();
     expect(profile.role).toBe('staff');
   });
 
-  it('6. protected route: blocks access without session', async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: null },
-      error: null,
-    });
+  it('6. protected route: blocks access without session token', async () => {
+    mockGetUser.mockResolvedValue(null);
 
-    const supabase = createMockSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const auth = createMockAuthClient();
+    const user = await auth.getUser(null);
 
     expect(user).toBeNull();
     // In real app, middleware redirects to /auth/login
   });
 
   it('7. logout: signs out and clears session', async () => {
-    mockSignOut.mockResolvedValue({ error: null });
+    mockSignOut.mockResolvedValue(undefined);
 
-    const supabase = createMockSupabase();
-    const { error } = await supabase.auth.signOut();
+    const auth = createMockAuthClient();
+    await auth.signOut('test-access-token');
 
-    expect(error).toBeNull();
     expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledWith('test-access-token');
   });
 
   it('8. full flow: signup → login → access → logout', async () => {
     // Step 1: Signup
     mockSignUp.mockResolvedValue({
-      data: { user: testUser, session: null },
+      data: { user: testUser, tokens: testTokens },
       error: null,
     });
-    const supabase = createMockSupabase();
-    const signupResult = await supabase.auth.signUp({
+    const auth = createMockAuthClient();
+    const signupResult = await auth.signUp({
       email: 'flow@example.com',
       password: 'password123',
-      options: { data: { name: 'Flow Test' } },
+      name: 'Flow Test',
     });
     expect(signupResult.error).toBeNull();
 
     // Step 2: Login
-    mockSignInWithPassword.mockResolvedValue({
-      data: { user: testUser, session: { access_token: 'tok' } },
+    mockSignIn.mockResolvedValue({
+      data: { user: testUser, tokens: testTokens },
       error: null,
     });
-    const loginResult = await supabase.auth.signInWithPassword({
+    const loginResult = await auth.signIn({
       email: 'flow@example.com',
       password: 'password123',
     });
     expect(loginResult.error).toBeNull();
-    expect(loginResult.data.session).toBeDefined();
+    expect(loginResult.data.tokens).toBeDefined();
 
     // Step 3: Access protected resource
-    mockGetUser.mockResolvedValue({ data: { user: testUser }, error: null });
-    const { data: { user } } = await supabase.auth.getUser();
+    mockGetUser.mockResolvedValue(testUser);
+    const user = await auth.getUser(loginResult.data.tokens.access_token);
     expect(user).toBeDefined();
 
     // Step 4: Logout
-    mockSignOut.mockResolvedValue({ error: null });
-    const logoutResult = await supabase.auth.signOut();
-    expect(logoutResult.error).toBeNull();
+    mockSignOut.mockResolvedValue(undefined);
+    await auth.signOut(loginResult.data.tokens.access_token);
+    expect(mockSignOut).toHaveBeenCalled();
 
     // Step 5: Verify no longer authenticated
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    const afterLogout = await supabase.auth.getUser();
-    expect(afterLogout.data.user).toBeNull();
+    mockGetUser.mockResolvedValue(null);
+    const afterLogout = await auth.getUser('invalid-token');
+    expect(afterLogout).toBeNull();
   });
 });

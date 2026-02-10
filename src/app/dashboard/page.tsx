@@ -1,5 +1,5 @@
 import { requireAuth } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { createDbClient } from '@/lib/db-client';
 import Link from 'next/link';
 import { Shift } from '@/types/database';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -8,17 +8,17 @@ export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const session = await requireAuth();
-  const supabase = await createClient();
+  const db = createDbClient();
 
   // Get open callouts count
-  const { count: openCallouts } = await supabase
+  const { count: openCallouts } = await db
     .from('callouts')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'open');
 
   // Get user's upcoming shifts
   const today = new Date().toISOString().split('T')[0];
-  const { data: upcomingShifts } = await supabase
+  const { data: upcomingShifts } = await db
     .from('shifts')
     .select('*')
     .eq('user_id', session.id)

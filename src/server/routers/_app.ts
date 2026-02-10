@@ -19,7 +19,7 @@ export const appRouter = router({
 
   /** Get current authenticated user info */
   me: authedProcedure.query(async ({ ctx }) => {
-    const { data: profile } = await ctx.supabase
+    const { data: profile } = await ctx.db
       .from('users')
       .select('*')
       .eq('id', ctx.user.id)
@@ -32,7 +32,7 @@ export const appRouter = router({
   org: router({
     /** Get the current user's organization */
     get: orgProcedure.query(async ({ ctx }) => {
-      const { data: org } = await ctx.supabase
+      const { data: org } = await ctx.db
         .from('organizations')
         .select('*')
         .eq('id', ctx.orgId)
@@ -43,7 +43,7 @@ export const appRouter = router({
 
     /** List members in the current organization */
     members: orgProcedure.query(async ({ ctx }) => {
-      const { data: members } = await ctx.supabase
+      const { data: members } = await ctx.db
         .from('org_members')
         .select('*, user:users(*)')
         .eq('org_id', ctx.orgId);
@@ -72,7 +72,7 @@ export const appRouter = router({
         })
       )
       .query(async ({ ctx, input }) => {
-        let query = ctx.supabase.from('callouts').select('*, shift:shifts(*)');
+        let query = ctx.db.from('callouts').select('*, shift:shifts(*)');
 
         if (input.status) {
           query = query.eq('status', input.status);
