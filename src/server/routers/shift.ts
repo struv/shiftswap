@@ -233,6 +233,101 @@ export const shiftRouter = router({
       return { shift };
     }),
 
+  /** Bulk-create shifts from CSV import — manager/admin only */
+  bulkCreate: orgProcedure
+    .input(
+      z.object({
+        shifts: z.array(
+          z.object({
+            email: z.string().email(),
+            date: z.string(),
+            startTime: z.string(),
+            endTime: z.string(),
+            role: z.string(),
+            department: z.string(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.orgRole === 'staff') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only managers and admins can import shifts',
+        });
+      }
+
+      // Collect unique emails and resolve to user IDs
+      const emails = [...new Set(input.shifts.map((s) => s.email))];
+      const { data: users, error: usersError } = await ctx.supabase
+        .from('users')
+        .select('id, email')
+        .in('email', emails);
+
+      if (usersError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to look up users: ${usersError.message}`,
+        });
+      }
+
+      const emailToId = new Map<string, string>();
+      for (const u of users ?? []) {
+        emailToId.set(u.email, u.id);
+      }
+
+      const created: { row: number; shiftId: string }[] = [];
+      const errors: { row: number; email: string; reason: string }[] = [];
+
+      for (let i = 0; i < input.shifts.length; i++) {
+        const s = input.shifts[i];
+        const userId = emailToId.get(s.email);
+
+        if (!userId) {
+          errors.push({ row: i + 1, email: s.email, reason: `User not found: ${s.email}` });
+          continue;
+        }
+
+        if (s.startTime >= s.endTime) {
+          errors.push({ row: i + 1, email: s.email, reason: 'End time must be after start time' });
+          continue;
+        }
+
+        const overlap = await hasOverlappingShift(
+          ctx.supabase,
+          userId,
+          s.date,
+          s.startTime,
+          s.endTime
+        );
+        if (overlap) {
+          errors.push({ row: i + 1, email: s.email, reason: 'Overlaps with an existing shift' });
+          continue;
+        }
+
+        const { data: shift, error } = await ctx.supabase
+          .from('shifts')
+          .insert({
+            user_id: userId,
+            date: s.date,
+            start_time: s.startTime,
+            end_time: s.endTime,
+            role: s.role,
+            department: s.department,
+          })
+          .select('id')
+          .single();
+
+        if (error) {
+          errors.push({ row: i + 1, email: s.email, reason: error.message });
+        } else {
+          created.push({ row: i + 1, shiftId: shift.id });
+        }
+      }
+
+      return { created: created.length, errors, total: input.shifts.length };
+    }),
+
   /** Delete a shift — manager/admin only */
   delete: orgProcedure
     .input(z.object({ id: z.string().uuid() }))
