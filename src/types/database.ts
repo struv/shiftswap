@@ -60,6 +60,22 @@ export interface CallOut {
   updated_at: string;
 }
 
+export type SwapRequestStatus = 'pending' | 'approved' | 'denied' | 'cancelled';
+
+export interface SwapRequest {
+  id: string;
+  shift_id: string;
+  requested_by: string;
+  replacement_user_id: string | null;
+  reason: string | null;
+  status: SwapRequestStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  manager_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type ClaimStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Claim {
@@ -126,6 +142,11 @@ export interface Database {
         Row: Claim;
         Insert: Omit<Claim, 'id' | 'created_at' | 'claimed_at'>;
         Update: Partial<Omit<Claim, 'id'>>;
+      };
+      swap_requests: {
+        Row: SwapRequest;
+        Insert: Omit<SwapRequest, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<SwapRequest, 'id'>>;
       };
     };
   };
