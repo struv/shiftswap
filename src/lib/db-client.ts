@@ -89,7 +89,7 @@ function parseSelectString(selectStr: string): {
 
     // Check if this part is an embed: alias:table(columns)
     const embedMatch = trimmed.match(
-      /^(\w+):(\w+)(?:!(\w+))?\((.+)\)$/s
+      /^(\w+):(\w+)(?:!(\w+))?\(([\s\S]+)\)$/
     );
     if (embedMatch) {
       const [, alias, table, fkHint, innerSelect] = embedMatch;
@@ -275,8 +275,8 @@ class QueryBuilder<T = AnyRow> {
   }
 
   /** Make the builder thenable so `await builder` works. */
-  then<TResult1 = { data: T[] | null; error: unknown; count?: number }, TResult2 = never>(
-    resolve?: ((value: { data: T[] | null; error: unknown; count?: number }) => TResult1 | PromiseLike<TResult1>) | null,
+  then<TResult1 = { data: T[] | null; error: { message: string } | null; count?: number }, TResult2 = never>(
+    resolve?: ((value: { data: T[] | null; error: { message: string } | null; count?: number }) => TResult1 | PromiseLike<TResult1>) | null,
     reject?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(resolve, reject);
