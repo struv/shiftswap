@@ -198,7 +198,7 @@ export async function notifyCalloutPosted({
       .single();
 
     if (managerUser?.email) {
-      await sendEmail(managerUser.email, 'callout_posted' as EmailTemplate, {
+      await sendEmail(managerUser.email, 'callout_posted', {
         date: shiftDate,
         startTime: shiftStartTime,
         endTime: shiftEndTime,
@@ -241,16 +241,16 @@ export async function notifyCalloutClaimed({
 
   if (!managers || managers.length === 0) return;
 
-  const message = `${claimantName} claimed ${callerName}'s callout for ${shiftDate} (${shiftStartTime} - ${shiftEndTime}).`;
+  const message = `${claimantName} claimed ${callerName}'s callout for ${shiftDate} (${shiftStartTime} - ${shiftEndTime}). Review and approve or deny this claim.`;
 
   for (const manager of managers) {
     await createNotification({
       db,
       userId: manager.user_id,
       type: 'callout_claimed',
-      title: 'Shift Claimed',
+      title: 'Shift Claimed — Approval Needed',
       message,
-      link: `/callouts`,
+      link: `/claims`,
     });
   }
 }
@@ -280,18 +280,17 @@ export async function notifyClaimApproved({
   await createNotification({
     db,
     userId: claimantId,
-    type: 'callout_claimed',
+    type: 'claim_approved',
     title: 'Claim Approved',
     message,
     link: `/callouts`,
   });
 
   if (claimantEmail) {
-    await sendEmail(claimantEmail, 'swap_approved' as EmailTemplate, {
+    await sendEmail(claimantEmail, 'claim_approved', {
       date: shiftDate,
       startTime: shiftStartTime,
       endTime: shiftEndTime,
-      managerNotes: '',
     });
   }
 }
@@ -321,18 +320,17 @@ export async function notifyClaimRejected({
   await createNotification({
     db,
     userId: claimantId,
-    type: 'callout_claimed',
+    type: 'claim_rejected',
     title: 'Claim Denied',
     message,
     link: `/callouts`,
   });
 
   if (claimantEmail) {
-    await sendEmail(claimantEmail, 'swap_denied' as EmailTemplate, {
+    await sendEmail(claimantEmail, 'claim_rejected', {
       date: shiftDate,
       startTime: shiftStartTime,
       endTime: shiftEndTime,
-      managerNotes: '',
     });
   }
 }
