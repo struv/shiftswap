@@ -196,6 +196,78 @@ export async function notifyCalloutClaimed({
 }
 
 /**
+ * Notify the claimant that their shift claim was approved.
+ */
+export async function notifyClaimApproved({
+  db,
+  claimantId,
+  claimantEmail,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+}: {
+  db: DbClient;
+  claimantId: string;
+  claimantEmail: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+}): Promise<void> {
+  const message = `Your claim for the shift on ${shiftDate} (${shiftStartTime} - ${shiftEndTime}) has been approved. The shift is now assigned to you.`;
+
+  await createNotification({
+    db,
+    userId: claimantId,
+    type: 'claim_approved',
+    title: 'Claim Approved',
+    message,
+    link: '/claims',
+  });
+
+  await sendEmail(claimantEmail, 'claim_approved' as EmailTemplate, {
+    date: shiftDate,
+    startTime: shiftStartTime,
+    endTime: shiftEndTime,
+  });
+}
+
+/**
+ * Notify the claimant that their shift claim was rejected.
+ */
+export async function notifyClaimRejected({
+  db,
+  claimantId,
+  claimantEmail,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+}: {
+  db: DbClient;
+  claimantId: string;
+  claimantEmail: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+}): Promise<void> {
+  const message = `Your claim for the shift on ${shiftDate} (${shiftStartTime} - ${shiftEndTime}) has been denied.`;
+
+  await createNotification({
+    db,
+    userId: claimantId,
+    type: 'claim_rejected',
+    title: 'Claim Denied',
+    message,
+    link: '/claims',
+  });
+
+  await sendEmail(claimantEmail, 'claim_rejected' as EmailTemplate, {
+    date: shiftDate,
+    startTime: shiftStartTime,
+    endTime: shiftEndTime,
+  });
+}
+
+/**
  * Notify the requester that their swap was denied.
  */
 export async function notifySwapDenied({

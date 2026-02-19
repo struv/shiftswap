@@ -10,6 +10,7 @@ import { shiftRouter } from './shift';
 import { swapRouter } from './swap';
 import { notificationRouter } from './notification';
 import { calloutRouter } from './callout';
+import { claimRouter } from './claim';
 
 export const appRouter = router({
   /** Health check — public, no auth required */
@@ -63,6 +64,9 @@ export const appRouter = router({
 
   /** Callout routes (org-scoped) */
   callout: calloutRouter,
+
+  /** Claim approval routes (org-scoped) */
+  claim: claimRouter,
 });
 
 export type AppRouter = typeof appRouter;
