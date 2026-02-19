@@ -149,6 +149,53 @@ export async function notifySwapApproved({
 }
 
 /**
+ * Notify managers that a callout has been claimed by a staff member.
+ */
+export async function notifyCalloutClaimed({
+  db,
+  orgId,
+  claimantId,
+  claimantName,
+  callerName,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+  calloutId,
+}: {
+  db: DbClient;
+  orgId: string;
+  claimantId: string;
+  claimantName: string;
+  callerName: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  calloutId: string;
+}): Promise<void> {
+  const { data: managers } = await db
+    .from('org_members')
+    .select('user_id')
+    .eq('org_id', orgId)
+    .in('role', ['manager', 'admin'])
+    .neq('user_id', claimantId);
+
+  if (!managers || managers.length === 0) return;
+
+  const message = `${claimantName} claimed ${callerName}'s callout for ${shiftDate} (${shiftStartTime} - ${shiftEndTime}).`;
+
+  for (const manager of managers) {
+    await createNotification({
+      db,
+      userId: manager.user_id,
+      type: 'callout_claimed',
+      title: 'Shift Claimed',
+      message,
+      link: `/callouts`,
+    });
+  }
+}
+
+/**
  * Notify the requester that their swap was denied.
  */
 export async function notifySwapDenied({

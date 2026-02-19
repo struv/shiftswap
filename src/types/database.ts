@@ -75,7 +75,7 @@ export interface SwapRequest {
   updated_at: string;
 }
 
-export type NotificationType = 'swap_request' | 'swap_approved' | 'swap_denied';
+export type NotificationType = 'swap_request' | 'swap_approved' | 'swap_denied' | 'callout_claimed';
 
 export interface Notification {
   id: string;
