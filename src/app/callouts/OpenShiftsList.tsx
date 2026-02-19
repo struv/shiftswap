@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { trpc } from '@/trpc/client';
+import { ClaimConfirmModal } from './ClaimConfirmModal';
 
 interface CalloutShift {
   id: string;
@@ -64,6 +65,7 @@ export function OpenShiftsList({ userId }: OpenShiftsListProps) {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claimedId, setClaimedId] = useState<string | null>(null);
+  const [confirmCallout, setConfirmCallout] = useState<CalloutWithDetails | null>(null);
 
   const fetchCallouts = useCallback(async () => {
     setLoading(true);
@@ -91,15 +93,17 @@ export function OpenShiftsList({ userId }: OpenShiftsListProps) {
     try {
       await trpc.callout.claim.mutate({ calloutId });
       setClaimedId(calloutId);
+      setConfirmCallout(null);
       // Remove the claimed callout from the list after a brief delay
       setTimeout(() => {
         setCallouts((prev) => prev.filter((c) => c.id !== calloutId));
         setClaimedId(null);
-      }, 1500);
+      }, 2000);
     } catch (err) {
       setClaimError(
         err instanceof Error ? err.message : 'Failed to claim shift'
       );
+      setConfirmCallout(null);
     } finally {
       setClaimingId(null);
     }
@@ -201,7 +205,7 @@ export function OpenShiftsList({ userId }: OpenShiftsListProps) {
               userId={userId}
               isClaiming={claimingId === callout.id}
               isClaimed={claimedId === callout.id}
-              onClaim={() => handleClaim(callout.id)}
+              onClaim={() => setConfirmCallout(callout)}
             />
           ))}
         </div>
@@ -230,6 +234,18 @@ export function OpenShiftsList({ userId }: OpenShiftsListProps) {
             All shifts are covered. Check back later for new call-outs.
           </p>
         </div>
+      )}
+
+      {/* Confirmation modal */}
+      {confirmCallout && confirmCallout.shift && confirmCallout.user && (
+        <ClaimConfirmModal
+          shift={confirmCallout.shift}
+          callerUser={confirmCallout.user}
+          reason={confirmCallout.reason}
+          isClaiming={claimingId === confirmCallout.id}
+          onConfirm={() => handleClaim(confirmCallout.id)}
+          onCancel={() => setConfirmCallout(null)}
+        />
       )}
     </div>
   );
@@ -375,7 +391,7 @@ function CalloutCard({
         {/* Claim button */}
         <div className="flex items-start ml-2 shrink-0">
           {isClaimed ? (
-            <div className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium">
+            <div className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium animate-scale-in">
               <svg
                 width="14"
                 height="14"
@@ -388,7 +404,7 @@ function CalloutCard({
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              Claimed
+              Pending approval
             </div>
           ) : isOwnCallout ? (
             <span className="px-4 py-2 text-sm text-text-tertiary">
@@ -398,44 +414,22 @@ function CalloutCard({
             <button
               onClick={onClaim}
               disabled={isClaiming}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-xl text-sm font-medium transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-[6px] text-sm font-medium transition-all shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] active:scale-[0.98]"
             >
-              {isClaiming ? (
-                <svg
-                  className="animate-spin h-3.5 w-3.5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
-                  <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-                </svg>
-              )}
-              Claim Shift
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
+                <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+              </svg>
+              I'll take it
             </button>
           )}
         </div>

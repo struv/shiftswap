@@ -1,11 +1,13 @@
 import { requireAuth } from '@/lib/auth';
 import Link from 'next/link';
 import { OpenShiftsList } from './OpenShiftsList';
+import { PendingClaimsList } from './PendingClaimsList';
 
 export const dynamic = 'force-dynamic';
 
 export default async function OpenShiftsPage() {
   const session = await requireAuth();
+  const isManager = session.role === 'manager' || session.role === 'admin';
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,7 +78,33 @@ export default async function OpenShiftsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-6 animate-fade-in-up">
-        <OpenShiftsList userId={session.id} />
+        {/* Manager section: Pending Claims */}
+        {isManager && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-base font-semibold text-text-primary">
+                Pending Claims
+              </h2>
+              <span className="px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                Manager
+              </span>
+            </div>
+            <p className="text-sm text-text-secondary mb-4">
+              Review and approve or reject shift claims from your team.
+            </p>
+            <PendingClaimsList />
+          </div>
+        )}
+
+        {/* Open shifts for all users */}
+        <div>
+          {isManager && (
+            <h2 className="text-base font-semibold text-text-primary mb-4">
+              Open Shifts
+            </h2>
+          )}
+          <OpenShiftsList userId={session.id} />
+        </div>
       </main>
     </div>
   );
