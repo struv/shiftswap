@@ -10,13 +10,24 @@
 const ENABLE_EMAIL = process.env.ENABLE_EMAIL === 'true';
 
 /** Email template identifiers */
-export type EmailTemplate = 'swap_request' | 'swap_approved' | 'swap_denied';
+export type EmailTemplate =
+  | 'swap_request'
+  | 'swap_approved'
+  | 'swap_denied'
+  | 'callout_posted'
+  | 'callout_claimed'
+  | 'claim_approved'
+  | 'claim_rejected';
 
 /** Email template subjects */
 const templateSubjects: Record<EmailTemplate, string> = {
   swap_request: 'New Shift Swap Request',
   swap_approved: 'Your Shift Swap Was Approved',
   swap_denied: 'Your Shift Swap Was Denied',
+  callout_posted: 'New Shift Call-Out',
+  callout_claimed: 'Shift Claim Pending Approval',
+  claim_approved: 'Your Shift Claim Was Approved',
+  claim_rejected: 'Your Shift Claim Was Rejected',
 };
 
 /** Email template body generators */
@@ -30,6 +41,18 @@ const templateBodies: Record<EmailTemplate, (data: Record<string, string>) => st
     (data.managerNotes ? `\n\nManager notes: ${data.managerNotes}` : ''),
   swap_denied: (data) =>
     `Your shift swap request for ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}) has been denied.` +
+    (data.managerNotes ? `\n\nManager notes: ${data.managerNotes}` : ''),
+  callout_posted: (data) =>
+    `${data.callerName || 'A team member'} can't work their shift on ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}).` +
+    `\n\nPlease check for available coverage.`,
+  callout_claimed: (data) =>
+    `${data.claimantName || 'Someone'} claimed ${data.callerName || 'a team member'}'s shift on ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}).` +
+    `\n\nPlease review and approve or reject this claim.`,
+  claim_approved: (data) =>
+    `Your claim for the shift on ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}) has been approved.` +
+    (data.managerNotes ? `\n\nManager notes: ${data.managerNotes}` : ''),
+  claim_rejected: (data) =>
+    `Your claim for the shift on ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}) has been rejected.` +
     (data.managerNotes ? `\n\nManager notes: ${data.managerNotes}` : ''),
 };
 

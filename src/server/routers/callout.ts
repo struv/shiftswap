@@ -9,7 +9,12 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, orgProcedure } from '../trpc';
-import { notifyCalloutClaimed, notifyCalloutPosted } from '@/lib/notifications';
+import {
+  notifyCalloutClaimed,
+  notifyCalloutPosted,
+  notifyClaimApproved,
+  notifyClaimRejected,
+} from '@/lib/notifications';
 
 export const calloutRouter = router({
   /**
@@ -264,5 +269,272 @@ export const calloutRouter = router({
       );
 
       return { claim };
+    }),
+
+  /**
+   * List claims with full details: callout, shift, claimant.
+   * Managers/admins see all pending claims. Staff see only their own claims.
+   */
+  listClaims: orgProcedure
+    .input(
+      z.object({
+        status: z.enum(['pending', 'approved', 'rejected']).optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      let query = ctx.db
+        .from('claims')
+        .select(
+          '*, callout:callouts(*, shift:shifts(*, location:locations(id, name)), user:users(id, name, email)), claimant:users!claims_user_id_fkey(id, name, email)'
+        );
+
+      if (input.status) {
+        query = query.eq('status', input.status);
+      }
+
+      // Staff only see their own claims
+      if (ctx.orgRole === 'staff') {
+        query = query.eq('user_id', ctx.user.id);
+      }
+
+      query = query.order('claimed_at', { ascending: false });
+
+      const { data: claims, error } = await query;
+      if (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch claims: ${error.message}`,
+        });
+      }
+      return { claims: claims ?? [] };
+    }),
+
+  /**
+   * Approve a pending claim — manager/admin only.
+   * Updates claim status to 'approved', callout to 'approved',
+   * and reassigns the shift to the claimant.
+   */
+  approve: orgProcedure
+    .input(
+      z.object({
+        claimId: z.string().uuid(),
+        managerNotes: z.string().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.orgRole === 'staff') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only managers and admins can approve claims',
+        });
+      }
+
+      // Fetch the claim with callout + shift details
+      const { data: claim, error: fetchError } = await ctx.db
+        .from('claims')
+        .select('*, callout:callouts(*, shift:shifts(*))')
+        .eq('id', input.claimId)
+        .single();
+
+      if (fetchError || !claim) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Claim not found',
+        });
+      }
+
+      if (claim.status !== 'pending') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot approve a claim with status "${claim.status}"`,
+        });
+      }
+
+      const callout = claim.callout;
+      const shift = callout?.shift;
+
+      if (!callout || !shift) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Could not load callout or shift details for this claim',
+        });
+      }
+
+      // Check claimant doesn't have an overlapping shift
+      const { data: overlaps } = await ctx.db
+        .from('shifts')
+        .select('id')
+        .eq('user_id', claim.user_id)
+        .eq('date', shift.date)
+        .lt('start_time', shift.end_time)
+        .gt('end_time', shift.start_time)
+        .neq('id', shift.id);
+
+      if (overlaps && overlaps.length > 0) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'The claimant has an overlapping shift at this time',
+        });
+      }
+
+      // Update claim status to approved
+      const { data: updatedClaim, error: claimUpdateError } = await ctx.db
+        .from('claims')
+        .update({
+          status: 'approved',
+          approved_by: ctx.user.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', input.claimId)
+        .select()
+        .single();
+
+      if (claimUpdateError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to approve claim: ${claimUpdateError.message}`,
+        });
+      }
+
+      // Update callout status to approved
+      const { error: calloutUpdateError } = await ctx.db
+        .from('callouts')
+        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .eq('id', callout.id);
+
+      if (calloutUpdateError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update callout status: ${calloutUpdateError.message}`,
+        });
+      }
+
+      // Reassign the shift to the claimant
+      const { error: shiftError } = await ctx.db
+        .from('shifts')
+        .update({ user_id: claim.user_id })
+        .eq('id', shift.id);
+
+      if (shiftError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to reassign shift: ${shiftError.message}`,
+        });
+      }
+
+      // Notify the claimant
+      const { data: claimantUser } = await ctx.db
+        .from('users')
+        .select('email')
+        .eq('id', claim.user_id)
+        .single();
+
+      notifyClaimApproved({
+        db: ctx.db,
+        claimantId: claim.user_id,
+        claimantEmail: claimantUser?.email ?? '',
+        shiftDate: shift.date,
+        shiftStartTime: shift.start_time,
+        shiftEndTime: shift.end_time,
+        calloutId: callout.id,
+        managerNotes: input.managerNotes,
+      }).catch((err) =>
+        console.error('[NOTIFICATION] Failed to notify claim approved:', err)
+      );
+
+      return { claim: updatedClaim };
+    }),
+
+  /**
+   * Reject a pending claim — manager/admin only.
+   * Updates claim status to 'rejected' and reopens the callout.
+   */
+  reject: orgProcedure
+    .input(
+      z.object({
+        claimId: z.string().uuid(),
+        managerNotes: z.string().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.orgRole === 'staff') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only managers and admins can reject claims',
+        });
+      }
+
+      // Fetch the claim with callout + shift details
+      const { data: claim, error: fetchError } = await ctx.db
+        .from('claims')
+        .select('*, callout:callouts(*, shift:shifts(*))')
+        .eq('id', input.claimId)
+        .single();
+
+      if (fetchError || !claim) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Claim not found',
+        });
+      }
+
+      if (claim.status !== 'pending') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot reject a claim with status "${claim.status}"`,
+        });
+      }
+
+      const callout = claim.callout;
+      const shift = callout?.shift;
+
+      // Update claim status to rejected
+      const { data: updatedClaim, error: claimUpdateError } = await ctx.db
+        .from('claims')
+        .update({ status: 'rejected' })
+        .eq('id', input.claimId)
+        .select()
+        .single();
+
+      if (claimUpdateError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to reject claim: ${claimUpdateError.message}`,
+        });
+      }
+
+      // Reopen the callout so others can claim it
+      if (callout) {
+        const { error: calloutUpdateError } = await ctx.db
+          .from('callouts')
+          .update({ status: 'open', updated_at: new Date().toISOString() })
+          .eq('id', callout.id);
+
+        if (calloutUpdateError) {
+          console.error('[CALLOUT] Failed to reopen callout:', calloutUpdateError.message);
+        }
+      }
+
+      // Notify the claimant
+      const { data: claimantUser } = await ctx.db
+        .from('users')
+        .select('email')
+        .eq('id', claim.user_id)
+        .single();
+
+      notifyClaimRejected({
+        db: ctx.db,
+        claimantId: claim.user_id,
+        claimantEmail: claimantUser?.email ?? '',
+        shiftDate: shift?.date ?? '',
+        shiftStartTime: shift?.start_time ?? '',
+        shiftEndTime: shift?.end_time ?? '',
+        calloutId: callout?.id ?? '',
+        managerNotes: input.managerNotes,
+      }).catch((err) =>
+        console.error('[NOTIFICATION] Failed to notify claim rejected:', err)
+      );
+
+      return { claim: updatedClaim };
     }),
 });

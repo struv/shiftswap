@@ -114,3 +114,132 @@ describe('Callout status lifecycle', () => {
     expect(calloutUserId !== claimantUserId).toBe(false);
   });
 });
+
+describe('Claim approval validation logic', () => {
+  const VALID_CLAIM_STATUSES = ['pending', 'approved', 'rejected'] as const;
+  type ClaimStatus = (typeof VALID_CLAIM_STATUSES)[number];
+
+  describe('role-based access control', () => {
+    function canApproveClaims(role: string): boolean {
+      return role === 'manager' || role === 'admin';
+    }
+
+    it('allows managers to approve claims', () => {
+      expect(canApproveClaims('manager')).toBe(true);
+    });
+
+    it('allows admins to approve claims', () => {
+      expect(canApproveClaims('admin')).toBe(true);
+    });
+
+    it('prevents staff from approving claims', () => {
+      expect(canApproveClaims('staff')).toBe(false);
+    });
+  });
+
+  describe('claim status transitions', () => {
+    function canApprove(status: ClaimStatus): boolean {
+      return status === 'pending';
+    }
+
+    function canReject(status: ClaimStatus): boolean {
+      return status === 'pending';
+    }
+
+    it('can approve a pending claim', () => {
+      expect(canApprove('pending')).toBe(true);
+    });
+
+    it('cannot approve an already-approved claim', () => {
+      expect(canApprove('approved')).toBe(false);
+    });
+
+    it('cannot approve a rejected claim', () => {
+      expect(canApprove('rejected')).toBe(false);
+    });
+
+    it('can reject a pending claim', () => {
+      expect(canReject('pending')).toBe(true);
+    });
+
+    it('cannot reject an already-approved claim', () => {
+      expect(canReject('approved')).toBe(false);
+    });
+
+    it('cannot reject an already-rejected claim', () => {
+      expect(canReject('rejected')).toBe(false);
+    });
+  });
+
+  describe('callout status after claim decision', () => {
+    function calloutStatusAfterApproval(): string {
+      return 'approved';
+    }
+
+    function calloutStatusAfterRejection(): string {
+      return 'open';
+    }
+
+    it('sets callout to approved when claim is approved', () => {
+      expect(calloutStatusAfterApproval()).toBe('approved');
+    });
+
+    it('reopens callout when claim is rejected', () => {
+      expect(calloutStatusAfterRejection()).toBe('open');
+    });
+  });
+
+  describe('shift overlap detection', () => {
+    interface ShiftTime {
+      start_time: string;
+      end_time: string;
+      date: string;
+    }
+
+    function hasOverlap(existing: ShiftTime, claimed: ShiftTime): boolean {
+      if (existing.date !== claimed.date) return false;
+      return existing.start_time < claimed.end_time && existing.end_time > claimed.start_time;
+    }
+
+    it('detects overlapping shifts on same day', () => {
+      const existing = { date: '2025-03-01', start_time: '09:00', end_time: '17:00' };
+      const claimed = { date: '2025-03-01', start_time: '12:00', end_time: '20:00' };
+      expect(hasOverlap(existing, claimed)).toBe(true);
+    });
+
+    it('allows non-overlapping shifts on same day', () => {
+      const existing = { date: '2025-03-01', start_time: '09:00', end_time: '12:00' };
+      const claimed = { date: '2025-03-01', start_time: '13:00', end_time: '17:00' };
+      expect(hasOverlap(existing, claimed)).toBe(false);
+    });
+
+    it('allows shifts on different days', () => {
+      const existing = { date: '2025-03-01', start_time: '09:00', end_time: '17:00' };
+      const claimed = { date: '2025-03-02', start_time: '09:00', end_time: '17:00' };
+      expect(hasOverlap(existing, claimed)).toBe(false);
+    });
+
+    it('detects fully contained shifts', () => {
+      const existing = { date: '2025-03-01', start_time: '08:00', end_time: '20:00' };
+      const claimed = { date: '2025-03-01', start_time: '10:00', end_time: '16:00' };
+      expect(hasOverlap(existing, claimed)).toBe(true);
+    });
+  });
+
+  describe('manager notes validation', () => {
+    it('allows empty notes', () => {
+      const notes = undefined;
+      expect(notes === undefined || (typeof notes === 'string' && notes.length <= 500)).toBe(true);
+    });
+
+    it('allows valid notes', () => {
+      const notes = 'Approved - good coverage match.';
+      expect(typeof notes === 'string' && notes.length <= 500).toBe(true);
+    });
+
+    it('rejects notes exceeding 500 characters', () => {
+      const notes = 'a'.repeat(501);
+      expect(notes.length <= 500).toBe(false);
+    });
+  });
+});

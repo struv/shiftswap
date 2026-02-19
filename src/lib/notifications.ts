@@ -256,6 +256,94 @@ export async function notifyCalloutClaimed({
 }
 
 /**
+ * Notify the claimant that their shift claim was approved by a manager.
+ */
+export async function notifyClaimApproved({
+  db,
+  claimantId,
+  claimantEmail,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+  calloutId,
+  managerNotes,
+}: {
+  db: DbClient;
+  claimantId: string;
+  claimantEmail: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  calloutId: string;
+  managerNotes?: string;
+}): Promise<void> {
+  const message = `Your claim for the shift on ${shiftDate} (${shiftStartTime} - ${shiftEndTime}) has been approved.` +
+    (managerNotes ? ` Notes: ${managerNotes}` : '');
+
+  await createNotification({
+    db,
+    userId: claimantId,
+    type: 'claim_approved',
+    title: 'Shift Claim Approved',
+    message,
+    link: `/callouts`,
+  });
+
+  if (claimantEmail) {
+    await sendEmail(claimantEmail, 'claim_approved' as EmailTemplate, {
+      date: shiftDate,
+      startTime: shiftStartTime,
+      endTime: shiftEndTime,
+      managerNotes: managerNotes ?? '',
+    });
+  }
+}
+
+/**
+ * Notify the claimant that their shift claim was rejected by a manager.
+ */
+export async function notifyClaimRejected({
+  db,
+  claimantId,
+  claimantEmail,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+  calloutId,
+  managerNotes,
+}: {
+  db: DbClient;
+  claimantId: string;
+  claimantEmail: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  calloutId: string;
+  managerNotes?: string;
+}): Promise<void> {
+  const message = `Your claim for the shift on ${shiftDate} (${shiftStartTime} - ${shiftEndTime}) has been rejected.` +
+    (managerNotes ? ` Notes: ${managerNotes}` : '');
+
+  await createNotification({
+    db,
+    userId: claimantId,
+    type: 'claim_rejected',
+    title: 'Shift Claim Rejected',
+    message,
+    link: `/callouts`,
+  });
+
+  if (claimantEmail) {
+    await sendEmail(claimantEmail, 'claim_rejected' as EmailTemplate, {
+      date: shiftDate,
+      startTime: shiftStartTime,
+      endTime: shiftEndTime,
+      managerNotes: managerNotes ?? '',
+    });
+  }
+}
+
+/**
  * Notify the requester that their swap was denied.
  */
 export async function notifySwapDenied({
