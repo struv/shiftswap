@@ -5,11 +5,11 @@
  * applied via orgProcedure, so all org-scoped queries automatically
  * have app.current_org_id set for RLS enforcement.
  */
-import { z } from 'zod';
 import { router, publicProcedure, authedProcedure, orgProcedure } from '../trpc';
 import { shiftRouter } from './shift';
 import { swapRouter } from './swap';
 import { notificationRouter } from './notification';
+import { calloutRouter } from './callout';
 
 export const appRouter = router({
   /** Health check — public, no auth required */
@@ -61,27 +61,8 @@ export const appRouter = router({
   /** Notification routes (org-scoped) */
   notification: notificationRouter,
 
-  /** Callout routes (org-scoped) */
-  callout: router({
-    list: orgProcedure
-      .input(
-        z.object({
-          status: z
-            .enum(['open', 'claimed', 'approved', 'cancelled'])
-            .optional(),
-        })
-      )
-      .query(async ({ ctx, input }) => {
-        let query = ctx.db.from('callouts').select('*, shift:shifts(*)');
-
-        if (input.status) {
-          query = query.eq('status', input.status);
-        }
-
-        const { data: callouts } = await query;
-        return { callouts: callouts ?? [] };
-      }),
-  }),
+  /** Callout and shift claim routes (org-scoped) */
+  callout: calloutRouter,
 });
 
 export type AppRouter = typeof appRouter;

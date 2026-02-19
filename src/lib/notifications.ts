@@ -189,3 +189,139 @@ export async function notifySwapDenied({
     managerNotes: managerNotes ?? '',
   });
 }
+
+/**
+ * Notify managers in the org about a new shift claim.
+ */
+export async function notifyClaimCreated({
+  db,
+  orgId,
+  claimerId,
+  claimerName,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+  claimId,
+}: {
+  db: DbClient;
+  orgId: string;
+  claimerId: string;
+  claimerName: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  claimId: string;
+}): Promise<void> {
+  const { data: managers } = await db
+    .from('org_members')
+    .select('user_id')
+    .eq('org_id', orgId)
+    .in('role', ['manager', 'admin'])
+    .neq('user_id', claimerId);
+
+  if (!managers || managers.length === 0) return;
+
+  const message = `${claimerName} claimed the open shift on ${shiftDate} (${shiftStartTime} - ${shiftEndTime}). Awaiting your approval.`;
+
+  for (const manager of managers) {
+    await createNotification({
+      db,
+      userId: manager.user_id,
+      type: 'claim_created',
+      title: 'New Shift Claim',
+      message,
+      link: `/callouts?claim=${claimId}`,
+    });
+
+    const { data: managerUser } = await db
+      .from('users')
+      .select('email')
+      .eq('id', manager.user_id)
+      .single();
+
+    if (managerUser?.email) {
+      await sendEmail(managerUser.email, 'claim_created' as EmailTemplate, {
+        date: shiftDate,
+        startTime: shiftStartTime,
+        endTime: shiftEndTime,
+        claimerName,
+      });
+    }
+  }
+}
+
+/**
+ * Notify the claimer that their claim was approved.
+ */
+export async function notifyClaimApproved({
+  db,
+  claimerId,
+  claimerEmail,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+  claimId,
+}: {
+  db: DbClient;
+  claimerId: string;
+  claimerEmail: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  claimId: string;
+}): Promise<void> {
+  const message = `Your claim for the shift on ${shiftDate} (${shiftStartTime} - ${shiftEndTime}) has been approved. The shift is now assigned to you.`;
+
+  await createNotification({
+    db,
+    userId: claimerId,
+    type: 'claim_approved',
+    title: 'Shift Claim Approved',
+    message,
+    link: `/callouts?claim=${claimId}`,
+  });
+
+  await sendEmail(claimerEmail, 'claim_approved' as EmailTemplate, {
+    date: shiftDate,
+    startTime: shiftStartTime,
+    endTime: shiftEndTime,
+  });
+}
+
+/**
+ * Notify the claimer that their claim was rejected.
+ */
+export async function notifyClaimRejected({
+  db,
+  claimerId,
+  claimerEmail,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+  claimId,
+}: {
+  db: DbClient;
+  claimerId: string;
+  claimerEmail: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  claimId: string;
+}): Promise<void> {
+  const message = `Your claim for the shift on ${shiftDate} (${shiftStartTime} - ${shiftEndTime}) has been rejected.`;
+
+  await createNotification({
+    db,
+    userId: claimerId,
+    type: 'claim_rejected',
+    title: 'Shift Claim Rejected',
+    message,
+    link: `/callouts?claim=${claimId}`,
+  });
+
+  await sendEmail(claimerEmail, 'claim_rejected' as EmailTemplate, {
+    date: shiftDate,
+    startTime: shiftStartTime,
+    endTime: shiftEndTime,
+  });
+}

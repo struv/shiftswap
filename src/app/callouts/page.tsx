@@ -1,10 +1,10 @@
 import { requireAuth } from '@/lib/auth';
 import Link from 'next/link';
-import { WeeklyCalendar } from './WeeklyCalendar';
+import { OpenCalloutsList } from './OpenCalloutsList';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SchedulePage() {
+export default async function CalloutsPage() {
   const session = await requireAuth();
 
   const isManager = session.role === 'manager' || session.role === 'admin';
@@ -19,20 +19,20 @@ export default async function SchedulePage() {
                 <path d="m15 18-6-6 6-6" />
               </svg>
             </Link>
-            <h1 className="text-lg font-semibold tracking-tight text-text-primary">Schedule</h1>
+            <h1 className="text-lg font-semibold tracking-tight text-text-primary">Open Shifts</h1>
           </div>
           <div className="flex items-center gap-4">
             <Link
-              href="/callouts"
+              href="/schedule"
               className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
             >
-              Open Shifts
+              Schedule
             </Link>
             <Link
               href="/swaps"
               className="text-sm font-medium text-brand-600 hover:text-brand-700 transition-colors"
             >
-              Swap Requests
+              Swaps
             </Link>
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center">
@@ -62,9 +62,8 @@ export default async function SchedulePage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-6 animate-fade-in-up">
-        <WeeklyCalendar
+        <OpenCalloutsList
           userId={session.id}
-          userRole={session.role}
           isManager={isManager}
         />
       </main>

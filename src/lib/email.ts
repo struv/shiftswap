@@ -10,13 +10,16 @@
 const ENABLE_EMAIL = process.env.ENABLE_EMAIL === 'true';
 
 /** Email template identifiers */
-export type EmailTemplate = 'swap_request' | 'swap_approved' | 'swap_denied';
+export type EmailTemplate = 'swap_request' | 'swap_approved' | 'swap_denied' | 'claim_created' | 'claim_approved' | 'claim_rejected';
 
 /** Email template subjects */
 const templateSubjects: Record<EmailTemplate, string> = {
   swap_request: 'New Shift Swap Request',
   swap_approved: 'Your Shift Swap Was Approved',
   swap_denied: 'Your Shift Swap Was Denied',
+  claim_created: 'New Shift Claim Submitted',
+  claim_approved: 'Your Shift Claim Was Approved',
+  claim_rejected: 'Your Shift Claim Was Rejected',
 };
 
 /** Email template body generators */
@@ -31,6 +34,13 @@ const templateBodies: Record<EmailTemplate, (data: Record<string, string>) => st
   swap_denied: (data) =>
     `Your shift swap request for ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}) has been denied.` +
     (data.managerNotes ? `\n\nManager notes: ${data.managerNotes}` : ''),
+  claim_created: (data) =>
+    `${data.claimerName || 'A staff member'} has claimed the open shift on ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}).` +
+    `\n\nPlease review and approve or reject this claim.`,
+  claim_approved: (data) =>
+    `Your claim for the shift on ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}) has been approved.`,
+  claim_rejected: (data) =>
+    `Your claim for the shift on ${data.date || 'N/A'} (${data.startTime || ''} - ${data.endTime || ''}) has been rejected.`,
 };
 
 /**
