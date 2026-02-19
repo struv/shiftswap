@@ -149,6 +149,66 @@ export async function notifySwapApproved({
 }
 
 /**
+ * Notify managers in the org that a staff member posted a call-out.
+ */
+export async function notifyCalloutPosted({
+  db,
+  orgId,
+  callerId,
+  callerName,
+  shiftDate,
+  shiftStartTime,
+  shiftEndTime,
+  calloutId,
+}: {
+  db: DbClient;
+  orgId: string;
+  callerId: string;
+  callerName: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  calloutId: string;
+}): Promise<void> {
+  const { data: managers } = await db
+    .from('org_members')
+    .select('user_id')
+    .eq('org_id', orgId)
+    .in('role', ['manager', 'admin'])
+    .neq('user_id', callerId);
+
+  if (!managers || managers.length === 0) return;
+
+  const message = `${callerName} can't work their shift on ${shiftDate} (${shiftStartTime} - ${shiftEndTime}) and posted a call-out.`;
+
+  for (const manager of managers) {
+    await createNotification({
+      db,
+      userId: manager.user_id,
+      type: 'callout_posted',
+      title: 'New Call-Out',
+      message,
+      link: `/callouts`,
+    });
+
+    const { data: managerUser } = await db
+      .from('users')
+      .select('email')
+      .eq('id', manager.user_id)
+      .single();
+
+    if (managerUser?.email) {
+      await sendEmail(managerUser.email, 'callout_posted' as EmailTemplate, {
+        date: shiftDate,
+        startTime: shiftStartTime,
+        endTime: shiftEndTime,
+        callerName,
+      });
+    }
+  }
+}
+
+/**
  * Notify managers that a callout has been claimed by a staff member.
  */
 export async function notifyCalloutClaimed({

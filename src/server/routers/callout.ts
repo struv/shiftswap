@@ -9,9 +9,110 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { router, orgProcedure } from '../trpc';
-import { notifyCalloutClaimed } from '@/lib/notifications';
+import { notifyCalloutClaimed, notifyCalloutPosted } from '@/lib/notifications';
 
 export const calloutRouter = router({
+  /**
+   * Create a callout — staff marks "I can't work this shift".
+   * Creates a callout record with status='open'.
+   * Only the shift owner can call out. Prevents duplicate callouts.
+   */
+  create: orgProcedure
+    .input(
+      z.object({
+        shiftId: z.string().uuid(),
+        reason: z.string().max(500).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Fetch the shift to verify ownership
+      const { data: shift, error: shiftError } = await ctx.db
+        .from('shifts')
+        .select('*, location:locations(id, name)')
+        .eq('id', input.shiftId)
+        .single();
+
+      if (shiftError || !shift) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Shift not found',
+        });
+      }
+
+      // Only the shift owner can call out
+      if (shift.user_id !== ctx.user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You can only call out from your own shifts',
+        });
+      }
+
+      // Prevent calling out for past shifts
+      const today = new Date().toISOString().split('T')[0];
+      if (shift.date < today) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot call out from a past shift',
+        });
+      }
+
+      // Check for existing open/claimed callout on this shift
+      const { data: existingCallouts } = await ctx.db
+        .from('callouts')
+        .select('id, status')
+        .eq('shift_id', input.shiftId)
+        .in('status', ['open', 'claimed']);
+
+      if (existingCallouts && existingCallouts.length > 0) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'A call-out already exists for this shift',
+        });
+      }
+
+      // Create the callout
+      const { data: callout, error: createError } = await ctx.db
+        .from('callouts')
+        .insert({
+          org_id: ctx.orgId,
+          shift_id: input.shiftId,
+          user_id: ctx.user.id,
+          reason: input.reason ?? null,
+          status: 'open',
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to create callout: ${createError.message}`,
+        });
+      }
+
+      // Notify managers
+      const { data: callerUser } = await ctx.db
+        .from('users')
+        .select('name')
+        .eq('id', ctx.user.id)
+        .single();
+
+      notifyCalloutPosted({
+        db: ctx.db,
+        orgId: ctx.orgId,
+        callerId: ctx.user.id,
+        callerName: callerUser?.name ?? 'A team member',
+        shiftDate: shift.date,
+        shiftStartTime: shift.start_time,
+        shiftEndTime: shift.end_time,
+        calloutId: callout.id,
+      }).catch((err) =>
+        console.error('[NOTIFICATION] Failed to notify callout posted:', err)
+      );
+
+      return { callout };
+    }),
+
   /**
    * List callouts with full details: shift (incl. location), user who called out.
    * Optionally filter by status. Ordered by most recent first.
