@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionTokensFromRequest } from '@/lib/session';
 import { verifyToken } from '@/lib/jwt';
 
-const PROTECTED_PATHS = ['/dashboard', '/callouts', '/shifts', '/approve', '/admin', '/schedule', '/swaps'];
+const PROTECTED_PATHS = ['/dashboard', '/callouts', '/shifts', '/approve', '/admin', '/schedule', '/swaps', '/claims'];
 const AUTH_PATHS = ['/auth/login', '/auth/signup'];
 
 export async function middleware(request: NextRequest) {
