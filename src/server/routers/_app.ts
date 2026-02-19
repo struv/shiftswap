@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { router, publicProcedure, authedProcedure, orgProcedure } from '../trpc';
 import { shiftRouter } from './shift';
 import { swapRouter } from './swap';
+import { claimRouter } from './claim';
 import { notificationRouter } from './notification';
 
 export const appRouter = router({
@@ -57,6 +58,9 @@ export const appRouter = router({
 
   /** Swap request workflow routes (org-scoped) */
   swap: swapRouter,
+
+  /** Claim approval workflow routes (org-scoped) */
+  claim: claimRouter,
 
   /** Notification routes (org-scoped) */
   notification: notificationRouter,
